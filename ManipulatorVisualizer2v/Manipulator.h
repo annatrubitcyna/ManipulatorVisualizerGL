@@ -72,7 +72,7 @@ protected:
 
 	// matrix exponent product method parameters
 	std::vector<Eigen::Vector<double, 6>> unitTwists_; //kAAxis, 1; [vx, vy, vz, r^w+lw], |v|=1, |w|=1
-	std::vector<Eigen::Matrix4d> H0_; //kAxis; homogeneous transformation matrices between coordinate systems in start position
+	std::vector<Eigen::Matrix4d> Hiim1T0_; //kAxis; homogeneous transformation matrices between coordinate systems i and i-1 in start position
 
 	//changing parameters
 	Point coords_;
@@ -98,8 +98,8 @@ protected:
 public:
 	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, std::vector<double> angles);
 	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
-	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, std::vector<double> angles);
-	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, Point coords, Eigen::Matrix3d R);
+	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles);
+	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R);
 
 	void changeAngle(int i, double aAngle);
 	void setPosition(Point coords, Eigen::Matrix3d R);

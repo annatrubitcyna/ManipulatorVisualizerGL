@@ -49,10 +49,40 @@ std::vector<double> a = { 0, l[2], 0, 0, 0, 0};
 std::vector<double> alpha = { PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0};
 std::vector<double> d = { l[1], 0, 0, l[3], 0, l[4]};
 Point baseCoords = Point(0.0, 0.0, 0.0);
-std::vector<double> angles = { PI, PI/3, PI/2, 0.0, 0.5, 0.3 };
+std::vector<double> angles = { PI, PI/3, 0, 0.0, 0.5, 0.3 };
+//std::vector<double> angles = { 0, 0, 0 , 0.0, 0, 0 };
 Manipulator manipulator = Manipulator(6, a, alpha,d, baseCoords, angles);
 
-//Manipulator(int kAxis, std::vector<Eigen::Vector<double, Eigen::Dynamic>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, std::vector<double> angles);
+Eigen::Vector<double, 6> unitTwist1(0, 0, -1, 0, -1, 0);
+Eigen::Vector<double, 6> uTn(0, 0, -1, 0, 0, 0);
+std::vector<Eigen::Vector<double, 6>> unitTwists = { unitTwist1, uTn, uTn, uTn, uTn, uTn };
+Eigen::Matrix4d H10T0 { {1,0,0, 0},
+						{0,0,-1,0},
+						{0,1,0,l[1]},
+						{0,0,0,1} };
+Eigen::Matrix4d H21T0 { {1,0,0, l[2]},
+						{0,1,0,0},
+						{0,0,1,0},
+						{0,0,0,1} };
+Eigen::Matrix4d H32T0 { {0,0,1, 0},
+						{1,0,0,0},
+						{0,1,0,0},
+						{0,0,0,1} };
+Eigen::Matrix4d H43T0 { {1,0,0, 0},
+						{0,0,1,0},
+						{0,-1,0,l[3]},
+						{0,0,0,1} };
+Eigen::Matrix4d H54T0 { {1,0,0, 0},
+						{0,0,-1,0},
+						{0,1,0,0},
+						{0,0,0,1} };
+
+Eigen::Matrix4d H65T0 { {1,0,0, 0},
+						{0,1,0,0},
+						{0,0,1,l[4]},
+						{0,0,0,1} };
+std::vector<Eigen::Matrix4d> Hiim1T0 = { H10T0, H21T0, H32T0, H43T0, H54T0, H65T0 };
+Manipulator manipulator2 = Manipulator(6, unitTwists, Hiim1T0, baseCoords, angles);
 
 
 //==========================================================================================================================|
@@ -338,6 +368,11 @@ void display()
 	/*glTranslatef(0, mouse.getX()-getWindowWidth()/2, mouse.getY()-getWindowHeight()/2);
 	glTranslatef(mouse.getZ(), 0, 0);
 	glTranslatef(0, -(mouse.getX() - getWindowWidth() / 2), -(mouse.getY() - getWindowHeight() / 2));*/
+
+	manipulator2.drawBaseCoordSystem();
+	manipulator2.drawManipulator();
+	manipulator2.drawCoordSystems();
+
 
 	manipulator.drawBaseCoordSystem();
 	manipulator.drawManipulator();

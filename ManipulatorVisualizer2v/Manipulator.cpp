@@ -150,23 +150,23 @@ Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> a
 	setPosition(coords, R);
 }
 
-Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, std::vector<double> angles)
+Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles)
 {
 	forwardKinematicsMethod_ = EXP;
 	kAxis_ = kAxis;
 	unitTwists_ = unitTwists;
-	H0_ = H0;
+	Hiim1T0_ = Hiim1T0;
 	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
 	setAngles(angles);
 }
 
-Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, Point coords, Eigen::Matrix3d R)
+Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R)
 {
 	forwardKinematicsMethod_ = EXP;
 	kAxis_ = kAxis;
 	unitTwists_ = unitTwists;
-	H0_ = H0;
+	Hiim1T0_ = Hiim1T0;
 	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
 	setPosition(coords, R);
@@ -235,55 +235,74 @@ void Manipulator::forwardKinematicDH()
 	coords_ = joints_[kAxis_-1];
 }
 
-void Manipulator::forwardKinematicEXP()
+//==========================================================================================================================|
+//													Forward Kinematic EXP														|
+//==========================================================================================================================|
+
+Eigen::Matrix3d skewSymmetricMatrixFromVector(Eigen::Vector3d x)
 {
+	Eigen::Matrix3d skewSymmetricMatrix	{{  0,   -x[2],  x[1] },
+										 { x[2],   0,   -x[0] },
+										 {-x[1],  x[0],   0   }};
+	return skewSymmetricMatrix;
 }
-//Eigen::Matrix3d skewSymmetricMatrixFromVector(Eigen::Vector3d x)
-//{
-//	Eigen::Matrix3d skewSymmetricMatrix	{{  0,   -x[2],  x[1] },
-//										 { x[2],   0,   -x[0] },
-//										 {-x[1],  x[0],   0   }};
-//}
-//
+
+//int the result don't need
 //Eigen::Matrix4d twistMatrixFromVector(Eigen::Vector<double, 6 > twist)
 //{
 //	Eigen::Vector3d w = twist.segment(0, 3);
 //	Eigen::Vector3d v = twist.segment(3, 3);
-//	Eigen::Matrix<double, 6, 6> twistMatrix = Eigen::Matrix<double, 6, 6>::Zero();
+//	Eigen::Matrix4d twistMatrix = Eigen::Matrix4d::Zero();
 //	twistMatrix.block(0, 0, 3, 3) = skewSymmetricMatrixFromVector(w);
-//	twistMatrix.block(3, 3, 1, 3) = v;
+//	twistMatrix.block(0, 3, 3, 1) = v;
 //	return twistMatrix;
 //}
-////Eigen::Matrix3d wt 
-//////Eigen::Matrix4d getApproxExpTwist(Eigen::Vector<double, 6> twist)
-////{
-////	//Eigen::Vector3d w = twist.segment(0, 3);
-////	//Eigen::Vector3d v = twist.segment(3, 3);
-////	//Eigen::Matrix3d wt = skewSymmetricMatrixFromVector(w);
-////	//Eigen::Matrix3d ExpWt = getExpWt(wt);
-////	//float[][] wTvw = dotL(w, dot(transpose(w), v)[0][0]);
-////	//float[][] ExpTwist21 = addM(dot(subM(eye(3), ExpWt), vect_mul(w, v)), wTvw);
-////	//if (round(norm_vect(w), 5) != 0) ExpTwist21 = dotL(ExpTwist21, 1 / sq(norm_vect(w)));
-////	//float[][] ExpTwist = blockMatrix(ExpWt, ExpTwist21, nullMatrix(1, 3), eye(1)); //блочная матрица
-////	//return ExpTwist;
-////}
-////
-////void Manipulator::forwardKinematicEXP()
-////{
-////	Eigen::Matrix3d expMulI = Eigen::Matrix3d::Identity();
-////	for (int i = 0; i < 6; i++) {
-////		Eigen::Matrix4d UnitTwistMatrix = twistMatrixFromVector(unitTwists_[i]);
-////		Eigen::Matrix4d ExpTwist = getApproxExp(angles_[i].get()*UnitTwistMatrix);
-////	}
-////}
+
+Eigen::Matrix3d getApproxExpWt(Eigen::Vector3d w)
+{
+	Eigen::Matrix3d wt = skewSymmetricMatrixFromVector(w);
+	double wNorm = w.norm();
+	if (round(wNorm*10000) != 0) {
+		wt = wt/ wNorm;
+	}
+	Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+	Eigen::Matrix3d ExpWt = I + wt * sin(wNorm) + wt * wt * (1 - cos(wNorm));
+	return ExpWt;
+}
+
+Eigen::Matrix4d getApproxExpTwist(Eigen::Vector<double, 6> twist)
+{
+	Eigen::Vector3d w = twist.segment(0, 3);
+	Eigen::Vector3d v = twist.segment(3, 3);
+	Eigen::Matrix3d ExpWt = getApproxExpWt(w);
+	Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+	Eigen::Vector3d ExpTwist21 = (I - ExpWt) * (w.cross(v)) + w.transpose() * v * w;
+	if ((round(w.norm()*10000)) != 0)
+		ExpTwist21 = ExpTwist21 / pow(w.norm(), 2);
+	Eigen::Matrix4d ExpTwist = Eigen::Matrix4d::Zero();
+	ExpTwist.block(0, 0, 3, 3) = ExpWt;
+	ExpTwist.block(0, 3, 3, 1) = ExpTwist21;
+	ExpTwist(3, 3) = 1;
+	return ExpTwist;
+}
+//
+void Manipulator::forwardKinematicEXP()
+{
+	Eigen::Vector4d Q{ {0}, {0}, {0}, {1} };
+
+	for (int i = 0; i < kAxis_; i++) {
+		Eigen::Matrix4d ExpTwist = getApproxExpTwist(angles_[i].get() * unitTwists_[i]);
+		H_[i + 1] = H_[i] * ExpTwist * Hiim1T0_[i];
+
+		Eigen::Vector4d joint = H_[i + 1] * Q;
+		joints_[i + 1] = Point(joint);
+	}
+	R_ = getR(H_[kAxis_ - 1]);
+	coords_ = joints_[kAxis_ - 1];
+}
 
 void Manipulator::inverseKinematic()
 {
-}
-
-float getLinkWidth() 
-{
-	return 4.0;
 }
 
 //==========================================================================================================================|
@@ -291,6 +310,11 @@ float getLinkWidth()
 //														DRAWING																|
 //																															|
 //==========================================================================================================================|
+
+float getLinkWidth()
+{
+	return 4.0;
+}
 
 void Manipulator::drawManipulator()   
 {
