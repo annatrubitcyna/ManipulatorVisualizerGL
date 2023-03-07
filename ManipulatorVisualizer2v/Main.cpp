@@ -49,7 +49,11 @@ int getScreneToCentreDistance()
 //Manipulator
 
 ////////////////////////////////////////////
-Manipulator manipulator;
+double l[] = {0, 100, 100, 100, 100}; //array of link lengths
+std::vector<double> a = {0, 0, l[2], 0, 0, 0, 0};
+std::vector<double> alpha = {0, PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0};
+std::vector<double> d = {0, l[1], 0, 0, l[3], 0, l[4]};
+Manipulator manipulator = Manipulator(6, a, alpha,d);
 
 
 //////////////////////////////////////////////
@@ -246,11 +250,22 @@ void display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.29, 0.29, 0.49, 1);
 	glLoadIdentity(); //clean matrix
+	//coordinates transformation
+	//glScalef(-1, 1, 1);
+
+	//made coordinate System in the centre and with standard  axes
+	/*glRotatef(90.0, 1.0, 0.0, 0.0);
+	glRotatef(90.0, 0.0, 0.0, 1.0);
+	glTranslatef(getScreneToCentreDistance(), getWindowWidth() / 2, -getWindowHeight() / 2);*/
 
 	//coordinates transformation about Camera
 	gluLookAt(camera.getX(), camera.getY(), camera.getZ(), //camera point
 		0.0, 0.0, 0.0,       //scene centre
 		0.0, 0.0, 1.0);      //z scene vector
+
+	//moving Camera around the Camera
+	//printf("%f", camera.getX());
+	//glTranslatef(camera.getX(), camera.getY(), camera.getZ());
 	
 	//smoothRX(targetCamRX); //сглаживание
 	//smoothRY(targetCamRY);
