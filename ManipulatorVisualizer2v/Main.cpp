@@ -22,11 +22,6 @@
 // This is the number of frames per second to render.
 static const int FPS = 60;
 
-//// Colors
-//GLfloat WHITE[] = { 1, 1, 1 };
-//GLfloat RED[] = { 1, 0, 0 };
-//GLfloat GREEN[] = { 0, 1, 0 };
-//GLfloat MAGENTA[] = { 1, 0, 1 };
 
 int getWindowWidth() 
 {
@@ -43,26 +38,29 @@ int getScreneToCentreDistance()
 	return 800;
 }
 
+//==========================================================================================================================|
+//																															|
+//													MANIPULATOR	DECLARATION													|
+//																															|
+//==========================================================================================================================|
 
-/////////////////////////////////////////////
-
-//Manipulator
-
-////////////////////////////////////////////
 double l[] = {0, 100, 100, 100, 100}; //array of link lengths
 std::vector<double> a = { 0, l[2], 0, 0, 0, 0};
 std::vector<double> alpha = { PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0};
 std::vector<double> d = { l[1], 0, 0, l[3], 0, l[4]};
 Point baseCoords = Point(0.0, 0.0, 0.0);
-std::vector<double> angles = { 0.0, 0.0, PI/2, 0.0, 0.0, 0.0 };
+std::vector<double> angles = { PI, PI/3, PI/2, 0.0, 0.5, 0.3 };
 Manipulator manipulator = Manipulator(6, a, alpha,d, baseCoords, angles);
 
+//Manipulator(int kAxis, std::vector<Eigen::Vector<double, Eigen::Dynamic>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, std::vector<double> angles);
 
-//////////////////////////////////////////////
 
-//Camera
+//==========================================================================================================================|
+//																															|
+//														CAMERA																|
+//																															|
+//==========================================================================================================================|
 
-/////////////////////////////////////////////
 class Camera
 {
 private:
@@ -104,11 +102,11 @@ public:
 
 Camera camera;
 
-////////////////////////////////////////////////
-// 
-// Keys
-// 
-/////////////////////////////////////////////////
+//==========================================================================================================================|
+//																															|
+//														KEYS																|
+//																															|
+//==========================================================================================================================|
 
 
 // Moves the camera according to the key pressed, then ask to refresh the
@@ -123,11 +121,15 @@ void special(int key, int, int)
 	}
 	glutPostRedisplay();
 };
-
-void keyboard(unsigned char key, int x, int y) {
+double getAngularSpeed() 
+{
+	return toRadians(5);
+}
+void keyboard(unsigned char key, int x, int y) 
+{
 	float cameraX0 = getScreneToCentreDistance();
-	printf("%d", camera.getZ());
 	switch (key) {
+		//standard Camera positions
 		case 'o':
 			camera.setPosition(cameraX0, 0, 0, 0, 0, 0);
 			break;
@@ -155,6 +157,49 @@ void keyboard(unsigned char key, int x, int y) {
 				camera.setPosition(cameraX0, 0, 0, 0, 90, 0);
 			}
 			break;
+		//angles changing
+		case 'q':
+			manipulator.changeAngle(1, getAngularSpeed());
+			break;
+		case 'w':
+			manipulator.changeAngle(1, -getAngularSpeed());
+			break;
+		case 'e':
+			manipulator.changeAngle(2, getAngularSpeed());
+			break;
+		case 'r':
+			manipulator.changeAngle(2, -getAngularSpeed());
+			break;
+		case 't':
+			manipulator.changeAngle(3, getAngularSpeed());
+			break;
+		case 'y':
+			manipulator.changeAngle(3, -getAngularSpeed());
+			break;
+		case 'u':
+			manipulator.changeAngle(4, getAngularSpeed());
+			break;
+		case 'i':
+			manipulator.changeAngle(4, -getAngularSpeed());
+			break;
+		case 'a':
+			manipulator.changeAngle(5, getAngularSpeed());
+			break;
+		case 's':
+			manipulator.changeAngle(5, -getAngularSpeed());
+			break;
+		case 'd':
+			manipulator.changeAngle(6, getAngularSpeed());
+			break;
+		case 'f':
+			manipulator.changeAngle(6, -getAngularSpeed());
+			break;
+		case 'g':
+			manipulator.changeAngle(7, getAngularSpeed());
+			break;
+		case 'h':
+			manipulator.changeAngle(7, -getAngularSpeed());
+			break;
 	}
 
 	if (key == 'o') {
@@ -164,11 +209,37 @@ void keyboard(unsigned char key, int x, int y) {
 };
 
 
-///////////////////////////////////////////////////
-//
-//Mouse
-//
-//////////////////////////////////////////////////
+//==========================================================================================================================|
+//																															|
+//														MOUSE																|
+//																															|
+//==========================================================================================================================|
+
+class Mouse
+{
+private:
+	float x_;
+	float y_;
+	float z_;
+	float zPr_;
+public:
+	Mouse() : x_(0), y_(0), z_(0), zPr_(0){}
+	float getX() { return x_; }
+	float getY() { return y_; }
+	float getZ() { return z_; }
+	float getZPr() { return zPr_; }
+	void setPosition(float x, float y, float z) {
+		x_ = x;
+		y_ = y;
+		z_ = z;
+	}
+	void setZpr(float zPr) {
+		zPr_ = zPr;
+	}
+};
+
+Mouse mouse;
+
 bool isCameraRotate = false;
 
 void mouseButton(int button, int state, int x, int y)
@@ -213,7 +284,7 @@ void mousePassiveMove(int x, int y)
 
 float getTrSpeed()
 {
-	return 0.5;
+	return 10;
 }
 void mouseWheel(int button, int dir, int x, int y)
 {
@@ -225,24 +296,25 @@ void mouseWheel(int button, int dir, int x, int y)
 	}
 }
 
-///////////////////////////////////////////////////
-//
-//GLUT functions
-//
-///////////////////////////////////////////////////
+void mouseWheelToMousePoint(int button, int dir, int x, int y) {
+	if (dir > 0) {
+		mouse.setPosition(x, y, mouse.getZ() + getTrSpeed());
+	}
+	else {
+		mouse.setPosition(x, y, mouse.getZ() - getTrSpeed());
+	}
+}
 
+//==========================================================================================================================|
+//																															|
+//														GLUT function														|
+//																															|
+//==========================================================================================================================|
 
 // Application-specific initialization: Set up global lighting parameters
 // and create display lists.
 void init()
 {
-	//glEnable(GL_DEPTH_TEST);
-	//glLightfv(GL_LIGHT0, GL_DIFFUSE, WHITE);
-	//glLightfv(GL_LIGHT0, GL_SPECULAR, WHITE);
-	//glMaterialfv(GL_FRONT, GL_SPECULAR, WHITE);
-	//glMaterialf(GL_FRONT, GL_SHININESS, 30);
-	//glEnable(GL_LIGHTING);
-	//glEnable(GL_LIGHT0);
 	glDisable(GL_LIGHTING);
 }
 
@@ -252,32 +324,20 @@ void display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.29, 0.29, 0.49, 1);
 	glLoadIdentity(); //clean matrix
-	//coordinates transformation
-	//glScalef(-1, 1, 1);
 
-	//made coordinate System in the center and with standard  axes
-	/*glRotatef(90.0, 1.0, 0.0, 0.0);
-	glRotatef(90.0, 0.0, 0.0, 1.0);
-	glTranslatef(getScreneToCentreDistance(), getWindowWidth() / 2, -getWindowHeight() / 2);*/
+	//mouse wheel
+	gluLookAt(camera.getX(), camera.getY(), camera.getZ(),      //camera point
+		0.0, 0.0, 0.0,											//scene center
+		0.0, 0.0, 1.0);											//z scene vector
 
-	//coordinates transformation about Camera
-	gluLookAt(camera.getX(), camera.getY(), camera.getZ(), //camera point
-		0.0, 0.0, 0.0,       //scene centre
-		0.0, 0.0, 1.0);      //z scene vector
-
-	//moving Camera around the Camera
-	//printf("%f", camera.getX());
-	//glTranslatef(camera.getX(), camera.getY(), camera.getZ());
-	
-	//smoothRX(targetCamRX); //сглаживание
-	//smoothRY(targetCamRY);
-	//smoothRZ(targetCamRZ);
 
 	glRotatef(camera.getXAngle(), 1.0, 0.0, 0.0);
 	glRotatef(camera.getYAngle(), 0.0, 1.0, 0.0);
 	glRotatef(camera.getZAngle(), 0.0, 0.0, 1.0);
 
-	//gluPerspective(40.0, GLfloat(getWindowWidth()) / GLfloat(getWindowHeight()), 1.0, 150.0);
+	/*glTranslatef(0, mouse.getX()-getWindowWidth()/2, mouse.getY()-getWindowHeight()/2);
+	glTranslatef(mouse.getZ(), 0, 0);
+	glTranslatef(0, -(mouse.getX() - getWindowWidth() / 2), -(mouse.getY() - getWindowHeight() / 2));*/
 
 	manipulator.drawBaseCoordSystem();
 	manipulator.drawManipulator();
@@ -288,14 +348,13 @@ void display()
 	glutSwapBuffers(); //&
 }
 
-//????????????????????????????
 // On reshape, constructs a camera that perfectly fits the window.
 void reshape(GLint w, GLint h)
 {
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, GLfloat(w) / GLfloat(h), 1.0, getScreneToCentreDistance()*3);
+	gluPerspective(60.0, GLfloat(h) / GLfloat(h), 1.0, getScreneToCentreDistance()*3);
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -306,11 +365,11 @@ void timer(int v)
 	glutTimerFunc(1000 / FPS, timer, v); //frames per secon
 }
 
-///////////////////////////////////////////////////
-//
-//Main
-//
-//////////////////////////////////////////////////
+//==========================================================================================================================|
+//																															|
+//														MAIN																|
+//																															|
+//==========================================================================================================================|
 
 
 // Initializes GLUT and enters the main loop.
@@ -324,24 +383,15 @@ int main(int argc, char** argv) {
 	glutCreateWindow("Manipulator Visualizer");
 	glutDisplayFunc(display); //setup
 	glutReshapeFunc(reshape); //changing window size
+
 	glutSpecialFunc(special); //special keyboard callback
 	glutKeyboardFunc(keyboard); //letters keyboard callback
-
-	//may be need to keys
-	/*glutIgnoreKeyRepeat(1);
-
-	glutSpecialUpFunc(releaseKey);*/
-
-	//glClearDepth(200.0);
-	//glDisable(GL_DEPTH_TEST);
-	//glDepthFunc(GL_LEQUAL);*/
-
-	//glDepthFunc(GL_ALWAYS);
 
 	glutMouseFunc(mouseButton);
 	glutMotionFunc(mouseMove);
 	glutPassiveMotionFunc(mousePassiveMove);
 	glutMouseWheelFunc(mouseWheel);
+
 	glutTimerFunc(100, timer, 0); //timer function every 100 ms- loop
 	init(); //light
 	glutMainLoop(); //enters the GLUT event processing loop

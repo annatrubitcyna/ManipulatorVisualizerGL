@@ -7,6 +7,10 @@
 
 const double PI = 3.141592653589793238463;
 
+double toRadians(double angle);
+
+double toDegrees(double angle);
+
 enum COLOR {
 	RED,
 	BLUE,
@@ -67,7 +71,7 @@ protected:
 	std::vector<double> d_; //kAxis, distance along zi-1 from xi-1 to xi
 
 	// matrix exponent product method parameters
-	std::vector<Eigen::Vector<double, Eigen::Dynamic>> unitTwists_; //kAAxis, kAxis, 1; [vx, vy, vz, r^w+lw], |v|=1, |w|=1
+	std::vector<Eigen::Vector<double, 6>> unitTwists_; //kAAxis, 1; [vx, vy, vz, r^w+lw], |v|=1, |w|=1
 	std::vector<Eigen::Matrix4d> H0_; //kAxis; homogeneous transformation matrices between coordinate systems in start position
 
 	//changing parameters
@@ -85,6 +89,7 @@ protected:
 
 	//physics
 
+	void initializeVectorsAsNull();
 
 	void forwardKinematicDH();
 	void forwardKinematicEXP();
@@ -92,10 +97,11 @@ protected:
 
 public:
 	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, std::vector<double> angles);
-	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
-	Manipulator(int kAxis, std::vector<Eigen::Vector<double, Eigen::Dynamic>> unitTwists, std::vector<Eigen::Matrix4d> H0, std::vector<double> angles);
-	Manipulator(int kAxis, std::vector<Eigen::Vector<double, Eigen::Dynamic>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point coords, Eigen::Matrix3d R);
+	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
+	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, std::vector<double> angles);
+	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, Point coords, Eigen::Matrix3d R);
 
+	void changeAngle(int i, double aAngle);
 	void setPosition(Point coords, Eigen::Matrix3d R);
 	void setPosition(Point coords);
 	void setAngles(std::vector<double> angles);

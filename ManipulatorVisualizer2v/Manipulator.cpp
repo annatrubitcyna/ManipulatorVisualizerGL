@@ -2,6 +2,16 @@
 #include <GL/glut.h>
 #include "Manipulator.h"
 
+double toRadians(double angle)
+{
+	return angle * PI / 180;
+}
+
+double toDegrees(double angle)
+{
+	return angle * 180 / PI;
+}
+
 Eigen::Matrix3d getR(Eigen::Matrix4d H)
 {
 	return H.block<3, 3>(0, 0);
@@ -15,9 +25,12 @@ GLfloat* getColor(COLOR i)
 	return colors[i];
 }
 
-/////////////////////////////////////////////////////
-/// Points
-/////////////////////////////////////////////////////
+//==========================================================================================================================|
+//																															|
+//														POINTS																|
+//																															|
+//==========================================================================================================================|
+
 Point::Point(double xp = 0.0, double yp = 0.0, double zp = 0.0) 
 {
 	x = xp;
@@ -42,9 +55,11 @@ double distance(Point p1, Point p2) {
 	return pow((pow((p1.x - p2.x), 2) + pow((p1.y - p2.y), 2) + pow((p1.z - p2.z), 2)), 0.5);
 }
 
-/////////////////////////////////////////////////////
-/// Angle
-/////////////////////////////////////////////////////
+//==========================================================================================================================|
+//																															|
+//														ANGLE																|
+//																															|
+//==========================================================================================================================|
 
 Angle::Angle(double value)
 {
@@ -84,13 +99,25 @@ Angle operator-(Angle a1, Angle a2)
 	return Angle(a1.get() - a2.get());
 };
 
-/////////////////////////////////////////////////////
-/// Manipulator
-/////////////////////////////////////////////////////
+//==========================================================================================================================|
+//																															|
+//														MNIPULATOR																|
+//																															|
+//==========================================================================================================================|
 
+void Manipulator::initializeVectorsAsNull() {
+	coords_ = Point(0, 0, 0);
+	R_ = Eigen::Matrix3d::Zero();
+	H_.push_back(Eigen::Matrix4d::Identity());
+	for (int i = 0; i < kAxis_; i++) {
+		joints_.push_back(Point(0.0, 0.0, 0.0));
+		angles_.push_back(Angle(0.0));
+		H_.push_back(Eigen::Matrix4d::Zero());
+	}
+}
 Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, std::vector<double> angles)
 {
-	//printf("%i", a.size());
+	////printf("%i", a.size());
 	//try {
 	//	if (a.size() < kAxis_ or a.size() > kAxis_) {
 	//		printf("!!!");
@@ -107,43 +134,61 @@ Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> a
 	d_ = d;
 	joints_.push_back(baseCoords);
 
-	coords_=Point(0,0,0);
-	R_=Eigen::Matrix3d::Zero();
-	H_.push_back(Eigen::Matrix4d::Identity());
-	for (int i = 0; i < kAxis_; i++) {
-		joints_.push_back(Point(0.0, 0.0, 0.0));
-		angles_.push_back(Angle(0.0));
-		H_.push_back(Eigen::Matrix4d::Zero());
-	}
+	initializeVectorsAsNull();
 	setAngles(angles);
 }
 
-Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point coords, Eigen::Matrix3d R)
+Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, Point coords, Eigen::Matrix3d R)
 {
 	forwardKinematicsMethod_ = DH;
 	kAxis_ = kAxis;
 	a_ = a;
 	alpha_ = alpha;
 	d_ = d;
+	joints_.push_back(baseCoords);
+	initializeVectorsAsNull();
 	setPosition(coords, R);
 }
 
-Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, Eigen::Dynamic>> unitTwists, std::vector<Eigen::Matrix4d> H0, std::vector<double> angles)
+Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, std::vector<double> angles)
 {
 	forwardKinematicsMethod_ = EXP;
 	kAxis_ = kAxis;
 	unitTwists_ = unitTwists;
 	H0_ = H0;
+	joints_.push_back(baseCoords);
+	initializeVectorsAsNull();
 	setAngles(angles);
 }
 
-Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, Eigen::Dynamic>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point coords, Eigen::Matrix3d R)
+Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> H0, Point baseCoords, Point coords, Eigen::Matrix3d R)
 {
 	forwardKinematicsMethod_ = EXP;
 	kAxis_ = kAxis;
 	unitTwists_ = unitTwists;
 	H0_ = H0;
+	joints_.push_back(baseCoords);
+	initializeVectorsAsNull();
 	setPosition(coords, R);
+}
+
+//==========================================================================================================================|
+//																															|
+//													TRANSFER FUNCTIONS														|
+//																															|
+//==========================================================================================================================|
+
+void Manipulator::changeAngle(int i, double dAngle) 
+{
+	if (i <= kAxis_) {
+		angles_[i-1] = Angle(angles_[i-1] + dAngle);
+		if (forwardKinematicsMethod_ == DH) {
+			forwardKinematicDH();
+		}
+		else if (forwardKinematicsMethod_ == EXP) {
+			forwardKinematicEXP();
+		}
+	}
 }
 
 void Manipulator::setAngles(std::vector<double> angles) 
@@ -158,7 +203,7 @@ void Manipulator::setAngles(std::vector<double> angles)
 	if (forwardKinematicsMethod_ == DH){
 		forwardKinematicDH();
 	}
-	if (forwardKinematicsMethod_ == EXP) {
+	else if (forwardKinematicsMethod_ == EXP) {
 		forwardKinematicEXP();
 	}
 }
@@ -193,6 +238,44 @@ void Manipulator::forwardKinematicDH()
 void Manipulator::forwardKinematicEXP()
 {
 }
+//Eigen::Matrix3d skewSymmetricMatrixFromVector(Eigen::Vector3d x)
+//{
+//	Eigen::Matrix3d skewSymmetricMatrix	{{  0,   -x[2],  x[1] },
+//										 { x[2],   0,   -x[0] },
+//										 {-x[1],  x[0],   0   }};
+//}
+//
+//Eigen::Matrix4d twistMatrixFromVector(Eigen::Vector<double, 6 > twist)
+//{
+//	Eigen::Vector3d w = twist.segment(0, 3);
+//	Eigen::Vector3d v = twist.segment(3, 3);
+//	Eigen::Matrix<double, 6, 6> twistMatrix = Eigen::Matrix<double, 6, 6>::Zero();
+//	twistMatrix.block(0, 0, 3, 3) = skewSymmetricMatrixFromVector(w);
+//	twistMatrix.block(3, 3, 1, 3) = v;
+//	return twistMatrix;
+//}
+////Eigen::Matrix3d wt 
+//////Eigen::Matrix4d getApproxExpTwist(Eigen::Vector<double, 6> twist)
+////{
+////	//Eigen::Vector3d w = twist.segment(0, 3);
+////	//Eigen::Vector3d v = twist.segment(3, 3);
+////	//Eigen::Matrix3d wt = skewSymmetricMatrixFromVector(w);
+////	//Eigen::Matrix3d ExpWt = getExpWt(wt);
+////	//float[][] wTvw = dotL(w, dot(transpose(w), v)[0][0]);
+////	//float[][] ExpTwist21 = addM(dot(subM(eye(3), ExpWt), vect_mul(w, v)), wTvw);
+////	//if (round(norm_vect(w), 5) != 0) ExpTwist21 = dotL(ExpTwist21, 1 / sq(norm_vect(w)));
+////	//float[][] ExpTwist = blockMatrix(ExpWt, ExpTwist21, nullMatrix(1, 3), eye(1)); //блочная матрица
+////	//return ExpTwist;
+////}
+////
+////void Manipulator::forwardKinematicEXP()
+////{
+////	Eigen::Matrix3d expMulI = Eigen::Matrix3d::Identity();
+////	for (int i = 0; i < 6; i++) {
+////		Eigen::Matrix4d UnitTwistMatrix = twistMatrixFromVector(unitTwists_[i]);
+////		Eigen::Matrix4d ExpTwist = getApproxExp(angles_[i].get()*UnitTwistMatrix);
+////	}
+////}
 
 void Manipulator::inverseKinematic()
 {
@@ -202,6 +285,12 @@ float getLinkWidth()
 {
 	return 4.0;
 }
+
+//==========================================================================================================================|
+//																															|
+//														DRAWING																|
+//																															|
+//==========================================================================================================================|
 
 void Manipulator::drawManipulator()   
 {
