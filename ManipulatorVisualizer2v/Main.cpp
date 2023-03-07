@@ -22,11 +22,11 @@
 // This is the number of frames per second to render.
 static const int FPS = 60;
 
-// Colors
-GLfloat WHITE[] = { 1, 1, 1 };
-GLfloat RED[] = { 1, 0, 0 };
-GLfloat GREEN[] = { 0, 1, 0 };
-GLfloat MAGENTA[] = { 1, 0, 1 };
+//// Colors
+//GLfloat WHITE[] = { 1, 1, 1 };
+//GLfloat RED[] = { 1, 0, 0 };
+//GLfloat GREEN[] = { 0, 1, 0 };
+//GLfloat MAGENTA[] = { 1, 0, 1 };
 
 int getWindowWidth() 
 {
@@ -40,7 +40,7 @@ int getWindowHeight()
 
 int getScreneToCentreDistance()
 {
-	return 400;
+	return 800;
 }
 
 
@@ -50,10 +50,12 @@ int getScreneToCentreDistance()
 
 ////////////////////////////////////////////
 double l[] = {0, 100, 100, 100, 100}; //array of link lengths
-std::vector<double> a = {0, 0, l[2], 0, 0, 0, 0};
-std::vector<double> alpha = {0, PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0};
-std::vector<double> d = {0, l[1], 0, 0, l[3], 0, l[4]};
-Manipulator manipulator = Manipulator(6, a, alpha,d);
+std::vector<double> a = { 0, l[2], 0, 0, 0, 0};
+std::vector<double> alpha = { PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0};
+std::vector<double> d = { l[1], 0, 0, l[3], 0, l[4]};
+Point baseCoords = Point(0.0, 0.0, 0.0);
+std::vector<double> angles = { 0.0, 0.0, PI/2, 0.0, 0.0, 0.0 };
+Manipulator manipulator = Manipulator(6, a, alpha,d, baseCoords, angles);
 
 
 //////////////////////////////////////////////
@@ -64,21 +66,21 @@ Manipulator manipulator = Manipulator(6, a, alpha,d);
 class Camera
 {
 private:
-	double xAngle_; //angle that camera rotate about x axis
-	double yAngle_;
-	double zAngle_;
-	double x_;
-	double y_;
-	double z_;
+	float xAngle_; //angle that camera rotate about x axis
+	float yAngle_;
+	float zAngle_;
+	float x_;
+	float y_;
+	float z_;
 public:
 	Camera() : xAngle_(0), yAngle_(0), zAngle_(0), x_(getScreneToCentreDistance()), y_(0), z_(0) {}
-	double getXAngle() { return xAngle_; }
-	double getYAngle() { return yAngle_; }
-	double getZAngle() { return zAngle_; }
-	double getX() { return x_; }
-	double getY() { return y_; }
-	double getZ() { return z_; }
-	void setPosition(double x, double y, double z, double xAngle, double yAngle, double zAngle) {
+	float getXAngle() { return xAngle_; }
+	float getYAngle() { return yAngle_; }
+	float getZAngle() { return zAngle_; }
+	float getX() { return x_; }
+	float getY() { return y_; }
+	float getZ() { return z_; }
+	void setPosition(float x, float y, float z, float xAngle, float yAngle, float zAngle) {
 		x_ = x;
 		y_ = y;
 		z_ = z;
@@ -86,13 +88,13 @@ public:
 		yAngle_ = yAngle;
 		zAngle_ = zAngle;
 	}
-	void translate(double dx, double dy, double dz)
+	void translate(float dx, float dy, float dz)
 	{
 		x_ += dx;
 		y_ += dy;
 		z_ += dz;
 	}
-	void rotate(double dx, double dy, double dz)
+	void rotate(float dx, float dy, float dz)
 	{
 		xAngle_ += dx;
 		yAngle_ += dy;
@@ -123,7 +125,7 @@ void special(int key, int, int)
 };
 
 void keyboard(unsigned char key, int x, int y) {
-	double cameraX0 = getScreneToCentreDistance();
+	float cameraX0 = getScreneToCentreDistance();
 	printf("%d", camera.getZ());
 	switch (key) {
 		case 'o':
@@ -193,20 +195,20 @@ float getZRotSpeed()
 void mouseMove(int x, int y)
 {
 	if (isCameraRotate) {
-		lastMx = (int)x - lastMx;
-		lastMy = (int)y - lastMy;
+		lastMx = x - lastMx;
+		lastMy = y - lastMy;
 		if (lastMx != -1) {
 			camera.rotate(0, lastMy / getYRotSpeed(), (lastMx) / getZRotSpeed());
 		}
 	}
-	lastMx = (float)x;
-	lastMy = (float)y;
+	lastMx = x;
+	lastMy = y;
 }
 
 void mousePassiveMove(int x, int y)
 {
-	lastMx = (float)x;
-	lastMy = (float)y;
+	lastMx = x;
+	lastMy = y;
 }
 
 float getTrSpeed()
@@ -253,7 +255,7 @@ void display()
 	//coordinates transformation
 	//glScalef(-1, 1, 1);
 
-	//made coordinate System in the centre and with standard  axes
+	//made coordinate System in the center and with standard  axes
 	/*glRotatef(90.0, 1.0, 0.0, 0.0);
 	glRotatef(90.0, 0.0, 0.0, 1.0);
 	glTranslatef(getScreneToCentreDistance(), getWindowWidth() / 2, -getWindowHeight() / 2);*/
@@ -277,7 +279,10 @@ void display()
 
 	//gluPerspective(40.0, GLfloat(getWindowWidth()) / GLfloat(getWindowHeight()), 1.0, 150.0);
 
+	manipulator.drawBaseCoordSystem();
 	manipulator.drawManipulator();
+	manipulator.drawCoordSystems();
+	
 
 	glFlush(); //clean buffers
 	glutSwapBuffers(); //&
@@ -290,7 +295,7 @@ void reshape(GLint w, GLint h)
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, GLfloat(w) / GLfloat(h), 1.0, 1000.0);
+	gluPerspective(60.0, GLfloat(w) / GLfloat(h), 1.0, getScreneToCentreDistance()*3);
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -312,9 +317,9 @@ void timer(int v)
 // main arguments from console, argc= numbers, argv = array of arguments
 int main(int argc, char** argv) {
 	glutInit(&argc, argv);  //initialize the GLUT library
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); //parameters rgb- colors (0-1), double neeed to animation, depth-&
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); //parameters rgb- colors (0-1), double need to animation, depth-&
 	glutInitWindowSize(getWindowWidth(), getWindowHeight());
-	glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - getWindowWidth()) / 2,     //centre
+	glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - getWindowWidth()) / 2,     //center
 		(glutGet(GLUT_SCREEN_HEIGHT) - getWindowHeight()) / 2); //left top corner offset
 	glutCreateWindow("Manipulator Visualizer");
 	glutDisplayFunc(display); //setup
