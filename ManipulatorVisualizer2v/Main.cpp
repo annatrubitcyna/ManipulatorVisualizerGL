@@ -48,14 +48,14 @@ double l[] = {0, 100, 100, 100, 100}; //array of link lengths
 std::vector<double> a = { 0, l[2], 0, 0, 0, 0};
 std::vector<double> alpha = { PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0};
 std::vector<double> d = { l[1], 0, 0, l[3], 0, l[4]};
+std::vector<double> dTh = { 0, 0, PI/2, 0, 0, 0};
 Point baseCoords = Point(0.0, 0.0, 0.0);
-std::vector<double> angles = { PI, PI/3, 0, 0.0, 0.5, 0.3 };
+std::vector<double> angles = { 0, PI/3, 0, 0.0, 0.5, 0.3 };
 //std::vector<double> angles = { 0, 0, 0 , 0.0, 0, 0 };
-Manipulator manipulator = Manipulator(6, a, alpha,d, baseCoords, angles);
+Manipulator manipulator2 = Manipulator(6, a, alpha,d, dTh, baseCoords, angles);
 
-Eigen::Vector<double, 6> unitTwist1(0, 0, -1, 0, -1, 0);
-Eigen::Vector<double, 6> uTn(0, 0, -1, 0, 0, 0);
-std::vector<Eigen::Vector<double, 6>> unitTwists = { unitTwist1, uTn, uTn, uTn, uTn, uTn };
+Eigen::Vector<double, 6> uT(0, 0, 1, 0, 0, 0);
+std::vector<Eigen::Vector<double, 6>> unitTwists = { uT, uT, uT, uT, uT, uT };
 Eigen::Matrix4d H10T0 { {1,0,0, 0},
 						{0,0,-1,0},
 						{0,1,0,l[1]},
@@ -82,7 +82,7 @@ Eigen::Matrix4d H65T0 { {1,0,0, 0},
 						{0,0,1,l[4]},
 						{0,0,0,1} };
 std::vector<Eigen::Matrix4d> Hiim1T0 = { H10T0, H21T0, H32T0, H43T0, H54T0, H65T0 };
-Manipulator manipulator2 = Manipulator(6, unitTwists, Hiim1T0, baseCoords, angles);
+Manipulator manipulator = Manipulator(6, unitTwists, Hiim1T0, baseCoords, angles);
 
 
 //==========================================================================================================================|
@@ -372,11 +372,13 @@ void display()
 	manipulator2.drawBaseCoordSystem();
 	manipulator2.drawManipulator();
 	manipulator2.drawCoordSystems();
+	manipulator2.drawAngles();
 
 
 	manipulator.drawBaseCoordSystem();
 	manipulator.drawManipulator();
 	manipulator.drawCoordSystems();
+	manipulator.drawAngles();
 	
 
 	glFlush(); //clean buffers
@@ -397,7 +399,7 @@ void reshape(GLint w, GLint h)
 void timer(int v)
 {
 	glutPostRedisplay();
-	glutTimerFunc(1000 / FPS, timer, v); //frames per secon
+	glutTimerFunc(1000 / FPS, timer, v); //frames per second
 }
 
 //==========================================================================================================================|

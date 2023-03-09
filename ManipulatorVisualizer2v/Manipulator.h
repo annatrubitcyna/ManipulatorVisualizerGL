@@ -16,12 +16,12 @@ enum COLOR {
 	BLUE,
 	GREEN,
 	YELLOW,
-	GB,
+	GREEN_BLUE,
 	PINK,
 	ORANGE,
 	VIOLET,
 	WHITE,
-	GYE
+	GREEN_YELLOW
 };
 
 GLfloat* getColor(COLOR i);
@@ -69,6 +69,7 @@ protected:
 	std::vector<double> a_; //kAxis, distance along xi from zi-1 to zi 
 	std::vector<double> alpha_; //kAxis, angle around xi from zi-1 to zi
 	std::vector<double> d_; //kAxis, distance along zi-1 from xi-1 to xi
+	std::vector<double> dTh_; //kAxis, if angle around zi-1 from xi-1 to xi is not angle that we set
 
 	// matrix exponent product method parameters
 	std::vector<Eigen::Vector<double, 6>> unitTwists_; //kAAxis, 1; [vx, vy, vz, r^w+lw], |v|=1, |w|=1
@@ -96,8 +97,8 @@ protected:
 	void inverseKinematic(); //different to different types of manipulator
 
 public:
-	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, std::vector<double> angles);
-	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
+	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, std::vector<double> angles);
+	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
 	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles);
 	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R);
 

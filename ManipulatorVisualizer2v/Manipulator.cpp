@@ -1,6 +1,11 @@
+#include <iostream>
 #include <math.h>
 #include <GL/glut.h>
 #include "Manipulator.h"
+
+std::string sep = "\n----------------------------------------\n";
+Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
+//std::cout << expWt << "\n";
 
 double toRadians(double angle)
 {
@@ -19,9 +24,9 @@ Eigen::Matrix3d getR(Eigen::Matrix4d H)
 
 GLfloat* getColor(COLOR i)
 {
-	//Red, blue, green, yellow, gb, pink, orange,violet, white, g-ye
+	//Red, blue, green, yellow, green-blue, pink, orange,violet, white, green-yellow
 	GLfloat colors[10][3] = { {1.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 1.0, 0.0},{1.0, 1.0, 0.0}, {0.0, 1.0, 1.0},
-									{1.0, 0.0, 1.0}, {1.0, 0.7, 0.0}, {1.0, 1.0, 1.0}, {0.7, 1.0, 0.0}, {0.7, 0.0, 1.0} };
+									{1.0, 0.0, 1.0}, {1.0, 0.7, 0.0}, {0.7, 1.0, 0.0}, {1.0, 1.0, 1.0}, {0.7, 0.0, 1.0} };
 	return colors[i];
 }
 
@@ -84,6 +89,12 @@ double toAngleFormat(double a) //function to keep all angles in one range (-PI,P
 	return a;
 }
 
+Angle toAngle(double a) //function to keep all angles in one range (-PI,PI]
+{
+	Angle angle = Angle(toAngleFormat(a));
+	return angle;
+}
+
 double Angle::get() { return value_; }
 double Angle::getInDeg() { return value_ * 180.0 / PI; }
 void Angle::set(double angle) { value_ = toAngleFormat(angle); } //angles in radians because cos, sin and other math works with radians
@@ -101,7 +112,7 @@ Angle operator-(Angle a1, Angle a2)
 
 //==========================================================================================================================|
 //																															|
-//														MNIPULATOR																|
+//														MANIPULATOR																|
 //																															|
 //==========================================================================================================================|
 
@@ -115,38 +126,31 @@ void Manipulator::initializeVectorsAsNull() {
 		H_.push_back(Eigen::Matrix4d::Zero());
 	}
 }
-Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, std::vector<double> angles)
+Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, std::vector<double> angles)
 {
-	////printf("%i", a.size());
-	//try {
-	//	if (a.size() < kAxis_ or a.size() > kAxis_) {
-	//		printf("!!!");
-	//		throw differentArraySizeException();
-	//	}
-	//}
-	//catch (differentArraySizeException e) {
-	//	printf("Angles array size should be equal with kAxis");
-	//}
 	forwardKinematicsMethod_ = DH;
 	kAxis_ = kAxis;
 	a_ = a;
 	alpha_ = alpha;
 	d_ = d;
+	dTh_ = dTh;
 	joints_.push_back(baseCoords);
-
 	initializeVectorsAsNull();
+
 	setAngles(angles);
 }
 
-Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, Point baseCoords, Point coords, Eigen::Matrix3d R)
+Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, Point coords, Eigen::Matrix3d R)
 {
 	forwardKinematicsMethod_ = DH;
 	kAxis_ = kAxis;
 	a_ = a;
 	alpha_ = alpha;
 	d_ = d;
+	dTh_ = dTh;
 	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
+
 	setPosition(coords, R);
 }
 
@@ -193,12 +197,15 @@ void Manipulator::changeAngle(int i, double dAngle)
 
 void Manipulator::setAngles(std::vector<double> angles) 
 {
-	//if (angles.size() < kAxis_ or angles.size() > kAxis_) {
-	//	throw("Angles array size should be equal with kAxis");
-	//}
-
-	for (int i = 0; i < angles.size(); i++) {
-		angles_[i]=Angle(angles[i]);
+	if (forwardKinematicsMethod_ == DH) {
+		for (int i = 0; i < angles.size(); i++) {
+			angles_[i] = Angle(angles[i])+dTh_[i];
+		}
+	}
+	else {
+		for (int i = 0; i < angles.size(); i++) {
+			angles_[i] = Angle(angles[i]);
+		}
 	}
 	if (forwardKinematicsMethod_ == DH){
 		forwardKinematicDH();
@@ -241,9 +248,11 @@ void Manipulator::forwardKinematicDH()
 
 Eigen::Matrix3d skewSymmetricMatrixFromVector(Eigen::Vector3d x)
 {
+	//std::cout << x.format(OctaveFmt) << sep;;
 	Eigen::Matrix3d skewSymmetricMatrix	{{  0,   -x[2],  x[1] },
 										 { x[2],   0,   -x[0] },
 										 {-x[1],  x[0],   0   }};
+	/*std::cout << skewSymmetricMatrix << sep;*/
 	return skewSymmetricMatrix;
 }
 
@@ -272,18 +281,18 @@ Eigen::Matrix3d getApproxExpWt(Eigen::Vector3d w)
 
 Eigen::Matrix4d getApproxExpTwist(Eigen::Vector<double, 6> twist)
 {
-	Eigen::Vector3d w = twist.segment(0, 3);
-	Eigen::Vector3d v = twist.segment(3, 3);
-	Eigen::Matrix3d ExpWt = getApproxExpWt(w);
+	Eigen::Vector3d w = twist.head(3);
+	Eigen::Vector3d v = twist.tail(3);
+	Eigen::Matrix3d expWt = getApproxExpWt(w);
 	Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
-	Eigen::Vector3d ExpTwist21 = (I - ExpWt) * (w.cross(v)) + w.transpose() * v * w;
+	Eigen::Vector3d expTwist21 = (I - expWt) * (w.cross(v)) + w.transpose() * v * w;
 	if ((round(w.norm()*10000)) != 0)
-		ExpTwist21 = ExpTwist21 / pow(w.norm(), 2);
-	Eigen::Matrix4d ExpTwist = Eigen::Matrix4d::Zero();
-	ExpTwist.block(0, 0, 3, 3) = ExpWt;
-	ExpTwist.block(0, 3, 3, 1) = ExpTwist21;
-	ExpTwist(3, 3) = 1;
-	return ExpTwist;
+		expTwist21 = expTwist21 / pow(w.norm(), 2);
+	Eigen::Matrix4d expTwist = Eigen::Matrix4d::Zero();
+	expTwist.block(0, 0, 3, 3) = expWt;
+	expTwist.block(0, 3, 3, 1) = expTwist21;
+	expTwist(3, 3) = 1;
+	return expTwist;
 }
 //
 void Manipulator::forwardKinematicEXP()
@@ -291,7 +300,8 @@ void Manipulator::forwardKinematicEXP()
 	Eigen::Vector4d Q{ {0}, {0}, {0}, {1} };
 
 	for (int i = 0; i < kAxis_; i++) {
-		Eigen::Matrix4d ExpTwist = getApproxExpTwist(angles_[i].get() * unitTwists_[i]);
+		Eigen::Vector<double, 6> Twist = angles_[i].get() * unitTwists_[i];
+		Eigen::Matrix4d ExpTwist = getApproxExpTwist(Twist);
 		H_[i + 1] = H_[i] * ExpTwist * Hiim1T0_[i];
 
 		Eigen::Vector4d joint = H_[i + 1] * Q;
@@ -376,25 +386,41 @@ double getAnglesLineWidth()
 {
 	return 2;
 }
+double getAngleRadius() 
+{
+	return 30;
+}
+
+
+void arc(double x, double y, double rad, double startAngle, double endAngle)
+{
+	double arcStep = PI / 1000;
+	for (double i = startAngle; i <= endAngle; i += arcStep)
+	{
+		glBegin(GL_LINES);
+		glVertex3d(x + rad * cos(i), y + rad * sin(i), 0);
+		glVertex3d(x + rad * cos(i + arcStep), y + rad * sin(i + arcStep), 0);
+		glEnd();
+	}
+}
 
 void Manipulator::drawAngles()  //need to explain which this angles are 
 {
 	glColor3f(getColor(WHITE)[0], getColor(WHITE)[1], getColor(WHITE)[2]);
 	glLineWidth(getAnglesLineWidth());
 
-	//pushMatrix();
-	//for (int i = 0; i < 6; i++) {
-	//	if (angles[i] > 0)  arc(0, 0, 100, 100, 0, angles[i]);
-	//	else arc(0, 0, 100, 100, angles[i], 0);
-	//	//переходим в следующую систему координат, чтобы там нарисовать угол
-	//	if (i == 2) rotateZ(angles[i] + PI / 2);
-	//	else rotateZ(angles[i]);
-	//	translate(0, 0, d[i + 1]);
-	//	translate(a[i + 1], 0, 0);
-	//	rotateX(alpha[i + 1]);
-
-	//}
-	//popMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	for (int i = 0; i < kAxis_; i++) {
+		glPushMatrix();
+		glMultMatrixd(H_[i].data());
+		if (angles_[i].get() > 0) {
+			arc(0, 0, getAngleRadius(), 0, angles_[i].get());
+		}
+		else {
+			arc(0, 0, getAngleRadius(), angles_[i].get(), 0);
+		}
+		glPopMatrix();
+	}
 }
 
 void Manipulator::drawBaseCoordSystem() {
