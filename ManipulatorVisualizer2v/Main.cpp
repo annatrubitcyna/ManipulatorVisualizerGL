@@ -52,7 +52,7 @@ std::vector<double> dTh = { 0, 0, PI/2, 0, 0, 0};
 Point baseCoords = Point(0.0, 0.0, 0.0);
 std::vector<double> angles = { 0, PI/3, 0, 0.0, 0.5, 0.3 };
 //std::vector<double> angles = { 0, 0, 0 , 0.0, 0, 0 };
-Manipulator manipulator2 = Manipulator(6, a, alpha,d, dTh, baseCoords, angles);
+SixAxisStandardManipulator manipulator2 = SixAxisStandardManipulator(a, alpha,d, dTh, baseCoords, angles);
 
 Eigen::Vector<double, 6> uT(0, 0, 1, 0, 0, 0);
 std::vector<Eigen::Vector<double, 6>> unitTwists = { uT, uT, uT, uT, uT, uT };
@@ -139,15 +139,32 @@ Camera camera;
 //==========================================================================================================================|
 
 
-// Moves the camera according to the key pressed, then ask to refresh the
-// display.
+double getLinearSpeed()
+{
+	return 4;
+}
+// Moves the manipulator according to the key pressed, then ask to refresh the  display.
 void special(int key, int, int)
 {
 	switch (key) {
-		//case GLUT_KEY_LEFT: camera.moveLeft(); break;
-		//case GLUT_KEY_RIGHT: camera.moveRight(); break;
-		//case GLUT_KEY_UP: camera.moveUp(); break;
-		//case GLUT_KEY_DOWN: camera.moveDown(); break;
+	case GLUT_KEY_RIGHT:
+		manipulator.changePosition(Point(getLinearSpeed(), 0, 0));
+		break;
+	case GLUT_KEY_LEFT: 
+		manipulator.changePosition(Point(-getLinearSpeed(), 0, 0));
+		break;
+	case GLUT_ACTIVE_ALT:
+		manipulator.changePosition(Point(0, getLinearSpeed(), 0));
+		break;
+	case GLUT_ACTIVE_CTRL:
+		manipulator.changePosition(Point(0, -getLinearSpeed(), 0));
+		break;
+	case GLUT_KEY_UP:
+		manipulator.changePosition(Point(0, 0, getLinearSpeed()));
+		break;
+	case GLUT_KEY_DOWN:
+		manipulator.changePosition(Point(0, 0, -getLinearSpeed()));
+		break;
 	}
 	glutPostRedisplay();
 };
@@ -231,11 +248,7 @@ void keyboard(unsigned char key, int x, int y)
 			manipulator.changeAngle(7, -getAngularSpeed());
 			break;
 	}
-
-	if (key == 'o') {
-	}
-	else if (key == 'o') {
-	}
+	glutPostRedisplay();
 };
 
 

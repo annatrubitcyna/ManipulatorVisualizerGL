@@ -60,6 +60,21 @@ double distance(Point p1, Point p2) {
 	return pow((pow((p1.x - p2.x), 2) + pow((p1.y - p2.y), 2) + pow((p1.z - p2.z), 2)), 0.5);
 }
 
+Point operator+(Point p1, Point p2)
+{
+	return Point(p1.x+p2.x, p1.y+p2.y, p1.z+p2.z);
+};
+
+Point operator-(Point p1, Point p2)
+{
+	return Point(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+};
+
+Eigen::Vector3d Point::toVector()
+{
+	return Eigen::Vector3d{ x, y, z };
+}
+
 //==========================================================================================================================|
 //																															|
 //														ANGLE																|
@@ -112,7 +127,7 @@ Angle operator-(Angle a1, Angle a2)
 
 //==========================================================================================================================|
 //																															|
-//														MANIPULATOR																|
+//														MANIPULATOR															|
 //																															|
 //==========================================================================================================================|
 
@@ -136,7 +151,7 @@ Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> a
 	dTh_ = dTh;
 	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
-
+	J_.resize(kAxis_, kAxis_);
 	setAngles(angles);
 }
 
@@ -150,7 +165,7 @@ Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> a
 	dTh_ = dTh;
 	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
-
+	J_.resize(kAxis_, kAxis_);
 	setPosition(coords, R);
 }
 
@@ -162,6 +177,7 @@ Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTw
 	Hiim1T0_ = Hiim1T0;
 	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
+	geomJ_.resize(kAxis_, kAxis_);
 	setAngles(angles);
 }
 
@@ -173,6 +189,7 @@ Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTw
 	Hiim1T0_ = Hiim1T0;
 	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
+	geomJ_.resize(kAxis_, kAxis_);
 	setPosition(coords, R);
 }
 
@@ -215,11 +232,22 @@ void Manipulator::setAngles(std::vector<double> angles)
 	}
 }
 
+void Manipulator::changePosition(Point dCoords)
+{
+	coords_ = coords_ + dCoords;
+	inverseKinematic();
+}
+
 void Manipulator::setPosition(Point coords, Eigen::Matrix3d R)
 {
 	coords_ = coords;
 	R_ = R;
 	inverseKinematic();
+}
+
+void Manipulator::setPosition(Point coords)
+{
+	setPosition(coords, Eigen::Matrix3d::Identity());
 }
 
 void Manipulator::forwardKinematicDH() 
@@ -242,30 +270,57 @@ void Manipulator::forwardKinematicDH()
 	coords_ = joints_[kAxis_-1];
 }
 
+void Manipulator::countJacobian() 
+{
+	for (int i = 1; i < kAxis_+1; i++) {
+		Eigen::Matrix3d Rim1 = getR(H_[i - 1]);
+		Eigen::Vector3d z (0, 0, 1);
+		Eigen::Vector3d zi0 = Rim1*z;
+		Eigen::Vector3d pki = (coords_ - joints_[i]).toVector();
+		Eigen::Vector3d Jvi = zi0.cross(pki);
+		J_.block(0, i, 3, 1) = Jvi;
+		J_.block(3, i, 3, 1) = zi0;
+	}
+}
+
 //==========================================================================================================================|
 //													Forward Kinematic EXP														|
 //==========================================================================================================================|
 
 Eigen::Matrix3d skewSymmetricMatrixFromVector(Eigen::Vector3d x)
 {
-	//std::cout << x.format(OctaveFmt) << sep;;
 	Eigen::Matrix3d skewSymmetricMatrix	{{  0,   -x[2],  x[1] },
 										 { x[2],   0,   -x[0] },
 										 {-x[1],  x[0],   0   }};
-	/*std::cout << skewSymmetricMatrix << sep;*/
 	return skewSymmetricMatrix;
 }
 
-//int the result don't need
-//Eigen::Matrix4d twistMatrixFromVector(Eigen::Vector<double, 6 > twist)
-//{
-//	Eigen::Vector3d w = twist.segment(0, 3);
-//	Eigen::Vector3d v = twist.segment(3, 3);
-//	Eigen::Matrix4d twistMatrix = Eigen::Matrix4d::Zero();
-//	twistMatrix.block(0, 0, 3, 3) = skewSymmetricMatrixFromVector(w);
-//	twistMatrix.block(0, 3, 3, 1) = v;
-//	return twistMatrix;
-//}
+Eigen::Vector3d vectorFromSkewSymmetricMatrix(Eigen::Matrix3d m)
+{
+	Eigen::Vector3d vector(-m(1,2), m(0,2), -m(0,1) );
+	return vector;
+}
+
+Eigen::Matrix4d twistMatrixFromVector(Eigen::Vector<double, 6 > twist)
+{
+	Eigen::Vector3d w = twist.segment(0, 3);
+	Eigen::Vector3d v = twist.segment(3, 3);
+	Eigen::Matrix4d twistMatrix = Eigen::Matrix4d::Zero();
+	twistMatrix.block(0, 0, 3, 3) = skewSymmetricMatrixFromVector(w);
+	twistMatrix.block(0, 3, 3, 1) = v;
+	return twistMatrix;
+}
+
+Eigen::Vector<double, 6> twistVectorFromMatrix(Eigen::Matrix4d twist)
+{
+	Eigen::Matrix3d wt = twist.block(0, 0, 3, 3);
+	Eigen::Vector3d w = vectorFromSkewSymmetricMatrix(wt);
+	Eigen::Vector3d v = twist.block(0, 3, 3, 1);
+	Eigen::Vector<double, 6> twistVector = Eigen::Vector<double, 6>::Zero();
+	twistVector.segment(0, 3) = w;
+	twistVector.segment(3, 3) = v;
+	return twistVector;
+}
 
 Eigen::Matrix3d getApproxExpWt(Eigen::Vector3d w)
 {
@@ -309,6 +364,15 @@ void Manipulator::forwardKinematicEXP()
 	}
 	R_ = getR(H_[kAxis_ - 1]);
 	coords_ = joints_[kAxis_ - 1];
+}
+
+void Manipulator::countGeomJacobian()
+{
+	for (int i = 1; i < kAxis_+1; i++) {
+		Eigen::Matrix4d twist = H_[i - 1]*twistMatrixFromVector(unitTwists_[i])*H_[i - 1];
+		Eigen::Vector<double, 6> twistV = twistVectorFromMatrix(twist);
+		geomJ_.block(0, i, kAxis_, 1) = twistV;
+	}
 }
 
 void Manipulator::inverseKinematic()
@@ -427,3 +491,14 @@ void Manipulator::drawBaseCoordSystem() {
 	drawCoordSystem(0, 40.0);
 }
 
+
+//==========================================================================================================================|
+//																															|
+//												SIX AXIS STANDARD MANIPULATOR												|
+//																															|
+//==========================================================================================================================|
+
+//void SixAxisStandardManipulator::inverseKinematic() 
+//{
+//
+//}
