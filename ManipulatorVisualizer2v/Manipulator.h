@@ -119,8 +119,31 @@ public:
 	//void drawAnglesMoreUnderstandable(); only for 6-axis manipulator
 };
 
+
+class TreeAxisRrrManipulator : public Manipulator
+{
+protected:
+	void inverseKinematic();
+public:
+	TreeAxisRrrManipulator(std::vector<double> a, std::vector<double> alpha, std::vector<double> d,
+		std::vector<double> dTh, Point baseCoords, std::vector<double> angles) :
+		Manipulator(3, a, alpha, d, dTh, baseCoords, angles) {};
+	TreeAxisRrrManipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d,
+		std::vector<double> dTh, Point baseCoords, Point coords, Eigen::Matrix3d R) :
+		Manipulator(3, a, alpha, d, dTh, baseCoords, coords, R) {};
+	TreeAxisRrrManipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists,
+		std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles) :
+		Manipulator(3, unitTwists, Hiim1T0, baseCoords, angles) {};
+	TreeAxisRrrManipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists,
+		std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R) :
+		Manipulator(3, unitTwists, Hiim1T0, baseCoords, coords, R) {};
+};
+
+
 class SixAxisStandardManipulator : public Manipulator
 {
+protected:
+	void inverseKinematic();
 public:
 	SixAxisStandardManipulator (std::vector<double> a, std::vector<double> alpha, std::vector<double> d, 
 								std::vector<double> dTh, Point baseCoords, std::vector<double> angles) :

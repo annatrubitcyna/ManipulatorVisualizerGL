@@ -6,7 +6,10 @@
 std::string sep = "\n----------------------------------------\n";
 Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 //std::cout << expWt << "\n";
-
+double sq(double a)
+{
+	return pow(a, 2);
+}
 double toRadians(double angle)
 {
 	return angle * PI / 180;
@@ -57,7 +60,7 @@ Point::Point(Eigen::Vector3d point)
 }
 
 double distance(Point p1, Point p2) {
-	return pow((pow((p1.x - p2.x), 2) + pow((p1.y - p2.y), 2) + pow((p1.z - p2.z), 2)), 0.5);
+	return pow((sq(p1.x - p2.x) + sq(p1.y - p2.y) + sq(p1.z - p2.z)), 0.5);
 }
 
 Point operator+(Point p1, Point p2)
@@ -102,12 +105,6 @@ double toAngleFormat(double a) //function to keep all angles in one range (-PI,P
 		a += 2 * PI;
 	}
 	return a;
-}
-
-Angle toAngle(double a) //function to keep all angles in one range (-PI,PI]
-{
-	Angle angle = Angle(toAngleFormat(a));
-	return angle;
 }
 
 double Angle::get() { return value_; }
@@ -490,7 +487,76 @@ void Manipulator::drawAngles()  //need to explain which this angles are
 void Manipulator::drawBaseCoordSystem() {
 	drawCoordSystem(0, 40.0);
 }
+//==========================================================================================================================|
+//																															|
+//													TREE AXIS RRR MANIPULATOR												|
+//																															|
+//==========================================================================================================================|
+bool firstAngleCloserToThird(Angle first, Angle second, Angle third)
+{
+	return abs((third - first).get()) < abs((third - second).get());
+}
 
+void TreeAxisRrrManipulator::inverseKinematic()
+{
+	double r1 = sqrt(sq(coords_.x) + sq(coords_.y));
+	double r2 = coords_.z - d_[0];
+	double r3 = sqrt(sq(r1) + sq(r2));
+
+
+	if (abs((sq(a_[1]) + sq(r3) - sq(a_[2])) / (2 * a_[1] * r3)) <= 1) {
+		Angle psi1 = Angle(acos((sq(a_[1]) + sq(r3) - sq(a_[2])) / (2 * a_[1] * r3)));
+		Angle psi2 = Angle(atan2(r2, r1));
+		if (abs((sq(a_[1]) + sq(a_[2]) - sq(r3)) / (2 * a_[1] * a_[2])) <= 1) {
+			Angle psi3 = Angle(acos((sq(a_[1]) + sq(a_[2]) - sq(r3)) / (2 * a_[1] * a_[2])));
+			//exeption = "OK";
+
+			Angle t11 = Angle(atan2(coords_.y, coords_.x));
+			Angle t12 = t11 + Angle(PI);
+
+			Angle t211 = psi2 + psi1;
+			Angle t212 = psi2 - psi1;
+
+			Angle t221 = Angle(PI) - (psi2 + psi1);
+			Angle t222 = Angle(PI) - (psi2 - psi1);
+
+
+
+			Angle t31 = psi3 - Angle(PI);
+			Angle t32 = Angle(PI) - psi3;
+
+			if (firstAngleCloserToThird(t11, t12, angles_[0])) {
+				angles_[0] = t11;
+				if (firstAngleCloserToThird(t211, t212, angles_[1])) {
+					angles_[1] = t211;
+					angles_[2] = t31;
+				}
+				else {
+					angles_[1] = t212;
+					angles_[2] = t32;
+				}
+			}
+			else {
+				angles_[0] = t12;
+				if (firstAngleCloserToThird(t221, t222, angles_[1])) {
+					angles_[1] = t221;
+					angles_[2] = t32;
+				}
+				else {
+					angles_[1] = t222;
+					angles_[2] = t31;
+				}
+			}
+
+		}
+		else {
+			//exeption = "threeAxisBackwardTransferEx";
+		}
+	}
+	else {
+		//exeption = "threeAxisBackwardTransferEx";
+	}
+}
 
 //==========================================================================================================================|
 //																															|
@@ -498,7 +564,7 @@ void Manipulator::drawBaseCoordSystem() {
 //																															|
 //==========================================================================================================================|
 
-//void SixAxisStandardManipulator::inverseKinematic() 
-//{
-//
-//}
+void SixAxisStandardManipulator::inverseKinematic() 
+{
+
+}
