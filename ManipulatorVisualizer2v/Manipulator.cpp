@@ -39,7 +39,7 @@ GLfloat* getColor(COLOR i)
 //																															|
 //==========================================================================================================================|
 
-Point::Point(double xp = 0.0, double yp = 0.0, double zp = 0.0) 
+Point::Point(double xp , double yp , double zp ) 
 {
 	x = xp;
 	y = yp;
@@ -84,7 +84,7 @@ Eigen::Vector3d Point::toVector()
 //																															|
 //==========================================================================================================================|
 
-Angle::Angle(double value)
+Angle::Angle(double value) //(-PI, PI]
 {
 	double a = fmod(value, 2 * PI);
 	if (a > PI) {
@@ -132,13 +132,15 @@ void Manipulator::initializeVectorsAsNull() {
 	coords_ = Point(0, 0, 0);
 	R_ = Eigen::Matrix3d::Zero();
 	H_.push_back(Eigen::Matrix4d::Identity());
+	joints_.push_back(Point(0.0, 0.0, 0.0));
 	for (int i = 0; i < kAxis_; i++) {
 		joints_.push_back(Point(0.0, 0.0, 0.0));
 		angles_.push_back(Angle(0.0));
 		H_.push_back(Eigen::Matrix4d::Zero());
 	}
 }
-Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, std::vector<double> angles)
+
+Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh)
 {
 	forwardKinematicsMethod_ = DH;
 	kAxis_ = kAxis;
@@ -146,48 +148,20 @@ Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> a
 	alpha_ = alpha;
 	d_ = d;
 	dTh_ = dTh;
-	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
 	J_.resize(kAxis_, kAxis_);
-	setAngles(angles);
+	setAngles(angles_);
 }
 
-Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, Point coords, Eigen::Matrix3d R)
-{
-	forwardKinematicsMethod_ = DH;
-	kAxis_ = kAxis;
-	a_ = a;
-	alpha_ = alpha;
-	d_ = d;
-	dTh_ = dTh;
-	joints_.push_back(baseCoords);
-	initializeVectorsAsNull();
-	J_.resize(kAxis_, kAxis_);
-	setPosition(coords, R);
-}
-
-Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles)
+Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0)
 {
 	forwardKinematicsMethod_ = EXP;
 	kAxis_ = kAxis;
 	unitTwists_ = unitTwists;
 	Hiim1T0_ = Hiim1T0;
-	joints_.push_back(baseCoords);
 	initializeVectorsAsNull();
 	geomJ_.resize(kAxis_, kAxis_);
-	setAngles(angles);
-}
-
-Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R)
-{
-	forwardKinematicsMethod_ = EXP;
-	kAxis_ = kAxis;
-	unitTwists_ = unitTwists;
-	Hiim1T0_ = Hiim1T0;
-	joints_.push_back(baseCoords);
-	initializeVectorsAsNull();
-	geomJ_.resize(kAxis_, kAxis_);
-	setPosition(coords, R);
+	setAngles(angles_);
 }
 
 //==========================================================================================================================|
@@ -200,20 +174,30 @@ void Manipulator::changeAngle(int i, double dAngle)
 {
 	if (i <= kAxis_) {
 		angles_[i-1] = Angle(angles_[i-1] + dAngle);
-		if (forwardKinematicsMethod_ == DH) {
-			forwardKinematicDH();
-		}
-		else if (forwardKinematicsMethod_ == EXP) {
-			forwardKinematicEXP();
+		forwardKinematic();
+	}
+}
+
+void Manipulator::setAngles(std::vector<Angle> angles)
+{
+	if (forwardKinematicsMethod_ == DH) {
+		for (int i = 0; i < kAxis_; i++) {
+			angles_[i] = Angle(angles[i].get() + dTh_[i]);
 		}
 	}
+	else {
+		for (int i = 0; i < kAxis_; i++) {
+			angles_[i] = angles[i];
+		}
+	}
+	forwardKinematic();
 }
 
 void Manipulator::setAngles(std::vector<double> angles) 
 {
 	if (forwardKinematicsMethod_ == DH) {
-		for (int i = 0; i < angles.size(); i++) {
-			angles_[i] = Angle(angles[i])+dTh_[i];
+		for (int i = 0; i < kAxis_; i++) {
+			angles_[i] = Angle(angles[i]+dTh_[i]);
 		}
 	}
 	else {
@@ -221,18 +205,14 @@ void Manipulator::setAngles(std::vector<double> angles)
 			angles_[i] = Angle(angles[i]);
 		}
 	}
-	if (forwardKinematicsMethod_ == DH){
-		forwardKinematicDH();
-	}
-	else if (forwardKinematicsMethod_ == EXP) {
-		forwardKinematicEXP();
-	}
+	forwardKinematic();
 }
 
 void Manipulator::changePosition(Point dCoords)
 {
 	coords_ = coords_ + dCoords;
 	inverseKinematic();
+	forwardKinematic();
 }
 
 void Manipulator::setPosition(Point coords, Eigen::Matrix3d R)
@@ -240,11 +220,26 @@ void Manipulator::setPosition(Point coords, Eigen::Matrix3d R)
 	coords_ = coords;
 	R_ = R;
 	inverseKinematic();
+	forwardKinematic();
 }
 
 void Manipulator::setPosition(Point coords)
 {
 	setPosition(coords, Eigen::Matrix3d::Identity());
+}
+
+//==========================================================================================================================|
+//													Forward Kinematic														|
+//==========================================================================================================================|
+
+void Manipulator::forwardKinematic()
+{
+	if (forwardKinematicsMethod_ == DH) {
+		forwardKinematicDH();
+	}
+	else {
+		forwardKinematicEXP();
+	}
 }
 
 void Manipulator::forwardKinematicDH() 
@@ -281,7 +276,7 @@ void Manipulator::countJacobian()
 }
 
 //==========================================================================================================================|
-//													Forward Kinematic EXP														|
+//													Forward Kinematic EXP													|
 //==========================================================================================================================|
 
 Eigen::Matrix3d skewSymmetricMatrixFromVector(Eigen::Vector3d x)
@@ -487,17 +482,66 @@ void Manipulator::drawAngles()  //need to explain which this angles are
 void Manipulator::drawBaseCoordSystem() {
 	drawCoordSystem(0, 40.0);
 }
+
+//==========================================================================================================================|
+//																															|
+//														PRINTING															|
+//																															|
+//==========================================================================================================================|
+
+void Manipulator::printInfo() {
+	glColor3f(getColor(WHITE)[0], getColor(WHITE)[1], getColor(WHITE)[2]);
+	glBegin(GL_LINES);
+	glVertex2f(0.333, 0.1);
+	glVertex2f(0.666, 0.1);
+	glEnd();
+
+	glColor3f(1.0, 0.0, 0.0);
+	glRasterPos2f(0.333, 0.1); //define position on the screen
+	std::string string = std::to_string(angles_[0].get());
+	const char* string1 = "Text";
+
+	/*while (*string1) {*/
+		//glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *string1++);
+	//}
+
+	for (int i = 0; i < 5;  i++) {
+		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
+	}
+}
+
 //==========================================================================================================================|
 //																															|
 //													TREE AXIS RRR MANIPULATOR												|
 //																															|
 //==========================================================================================================================|
+
+ThreeAxisRrrManipulator::ThreeAxisRrrManipulator(std::vector<double> l)
+{
+	forwardKinematicsMethod_ = DH;
+	kAxis_ = 3;
+	l_ = l;
+	a_ = {0, l[1], l[2]};
+	alpha_ = {PI/2, 0, 0};
+	d_ = {l[0], 0, 0};
+	dTh_ = {0, 0, 0};
+
+	/*a_ = { 0, l[1], 0};
+	alpha_ = { PI / 2, 0, PI / 2};
+	d_ = { l[0], 0, 0, l[2], 0, l[3] };
+	dTh_ = { 0, 0, PI / 2, 0, 0, 0 };*/
+
+	initializeVectorsAsNull();
+	J_.resize(kAxis_, kAxis_);
+	setAngles(angles_);
+}
+
 bool firstAngleCloserToThird(Angle first, Angle second, Angle third)
 {
 	return abs((third - first).get()) < abs((third - second).get());
 }
 
-void TreeAxisRrrManipulator::inverseKinematic()
+void ThreeAxisRrrManipulator::inverseKinematic()
 {
 	double r1 = sqrt(sq(coords_.x) + sq(coords_.y));
 	double r2 = coords_.z - d_[0];
@@ -556,6 +600,15 @@ void TreeAxisRrrManipulator::inverseKinematic()
 	else {
 		//exeption = "threeAxisBackwardTransferEx";
 	}
+	
+}
+
+std::vector<Angle> ThreeAxisRrrManipulator::getAngles() {
+	return angles_;
+}
+
+Eigen::Matrix4d ThreeAxisRrrManipulator::getH() {
+	return H_[kAxis_];
 }
 
 //==========================================================================================================================|
@@ -564,7 +617,91 @@ void TreeAxisRrrManipulator::inverseKinematic()
 //																															|
 //==========================================================================================================================|
 
+SixAxisStandardManipulator::SixAxisStandardManipulator(ForwardKinematicsMethod method,  std::vector<double> l)
+{
+	forwardKinematicsMethod_ = method;
+	kAxis_ = 6;
+	l_ = l;
+	if (method == DH) {
+		a_ = { 0, l[1], 0, 0, 0, 0 };
+		alpha_ = { PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0 };
+		d_ = { l[0], 0, 0, l[2], 0, l[3] };
+		dTh_ = { 0, 0, PI / 2, 0, 0, 0 };
+	}
+	else if (method == EXP) {
+		Eigen::Vector<double, 6> uT(0, 0, 1, 0, 0, 0);
+		std::vector<Eigen::Vector<double, 6>> unitTwists = { uT, uT, uT, uT, uT, uT };
+		unitTwists_ = unitTwists;
+		Eigen::Matrix4d H10T0{ {1,0,0, 0},
+								{0,0,-1,0},
+								{0,1,0,l[0]},
+								{0,0,0,1} };
+		Eigen::Matrix4d H21T0{ {1,0,0, l[1]},
+								{0,1,0,0},
+								{0,0,1,0},
+								{0,0,0,1} };
+		Eigen::Matrix4d H32T0{ {0,0,1, 0},
+								{1,0,0,0},
+								{0,1,0,0},
+								{0,0,0,1} };
+		Eigen::Matrix4d H43T0{ {1,0,0, 0},
+								{0,0,1,0},
+								{0,-1,0,l[2]},
+								{0,0,0,1} };
+		Eigen::Matrix4d H54T0{ {1,0,0, 0},
+								{0,0,-1,0},
+								{0,1,0,0},
+								{0,0,0,1} };
+
+		Eigen::Matrix4d H65T0{ {1,0,0, 0},
+								{0,1,0,0},
+								{0,0,1,l[3]},
+								{0,0,0,1} };
+		std::vector<Eigen::Matrix4d> Hiim1T0 = { H10T0, H21T0, H32T0, H43T0, H54T0, H65T0 };
+		Hiim1T0_ = Hiim1T0;
+	}
+	initializeVectorsAsNull();
+	J_.resize(kAxis_, kAxis_);
+	setAngles(angles_);
+}
+
+std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R) {
+	//Angles around z, y', z''
+	Angle z3; Angle y2; Angle z1;
+	if (R(2,2) == 1) {
+		y2 = Angle(0);
+		z3 = Angle(0); //choose any t6
+		z1 = Angle(atan2(R(1,0), R(0,0)) - z3.get());
+	}
+	else if (R(2,2) == -1) {
+		y2 = Angle(PI);
+		z3 = Angle(0); //выбираем t6 любым
+		z1 = Angle(atan2(-R(0,1), -R(0,0) + z3.get()));
+	}
+	else {
+		int sign = 1; //1 or -1
+		y2 = atan2 (sign * sqrt(1 - sq(R(2,2))),   R(2,2));
+		z1 = atan2 (sign * R(1,2),                 sign * R(0,2));
+		z3 = atan2 (sign * R(2,1),                -sign * R(2,0)); 
+	}
+	std::array<Angle, 3> angles = { z1, y2, z3 };
+	return angles;
+
+}
+
 void SixAxisStandardManipulator::inverseKinematic() 
 {
+	Eigen::Vector3d zv (0, 0, 1);
+	Eigen::Vector3d p46 = d_[5] * getR(H_[kAxis_]) * zv;
+	Point p04 = coords_ - Point(p46);
 
+	ThreeAxisRrrManipulator firstThreeAxis = ThreeAxisRrrManipulator(l_);
+	firstThreeAxis.setPosition(p04);
+	std::vector<Angle> angles3 = firstThreeAxis.getAngles();
+	angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2];
+	Eigen::Matrix3d R3 = getR(firstThreeAxis.getH());
+	Eigen::Matrix3d R36 = R3.transpose()*getR(H_[kAxis_]);
+	std::array<Angle, 3> angles36 = findEulerAngles(R36);
+	angles_[3] = angles36[0]; angles_[4] = angles36[1]; angles_[5] = angles36[2];
+	setAngles(angles_);
 }

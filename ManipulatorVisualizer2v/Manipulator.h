@@ -11,6 +11,7 @@ double toRadians(double angle);
 
 double toDegrees(double angle);
 
+
 enum COLOR {
 	RED,
 	BLUE,
@@ -33,6 +34,7 @@ public:
 	double x;
 	double y;
 	double z;
+	Point() {};
 	Point(double x, double y, double z);
 	Point(Eigen::Vector4d point);
 	Point(Eigen::Vector3d point);
@@ -44,6 +46,7 @@ class Angle {
 private:
 	double value_;
 public:
+	Angle() {};
 	Angle(double value);
 	//double toAngleFormat(Angle angle);
 	double get();
@@ -51,6 +54,8 @@ public:
 	void set(double angle);
 	void setInDeg(double angle);
 };
+
+std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R);
 
 class differentArraySizeException {};
 
@@ -88,23 +93,25 @@ protected:
 	//physics
 
 	void initializeVectorsAsNull();
+	void setAngles(std::vector<Angle> angles);
 
+	void forwardKinematic();
 	void forwardKinematicDH();
 	void forwardKinematicEXP();
-	void inverseKinematic(); //different to different types of manipulator
+	virtual void inverseKinematic(); //different to different types of manipulator
 
 	void countJacobian();
 	void countGeomJacobian();
 
 public:
-	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, std::vector<double> angles);
-	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh, Point baseCoords, Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
-	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles);
-	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R);
+	Manipulator() {};
+	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh);
+	Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0);
 
+	void changeBaseCoords(Point baseCoords);
 	void changeAngle(int i, double aAngle);
 	void changePosition(Point dCoords);
-	void setPosition(Point coords, Eigen::Matrix3d R);
+	void setPosition(Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
 	void setPosition(Point coords);
 	void setAngles(std::vector<double> angles);
 
@@ -117,46 +124,33 @@ public:
 	void drawBaseCoordSystem();
 
 	//void drawAnglesMoreUnderstandable(); only for 6-axis manipulator
+
+	void printInfo();
 };
 
 
-class TreeAxisRrrManipulator : public Manipulator
+class ThreeAxisRrrManipulator : public Manipulator
 {
 protected:
+	std::vector<double> l_;
 	void inverseKinematic();
 public:
-	TreeAxisRrrManipulator(std::vector<double> a, std::vector<double> alpha, std::vector<double> d,
-		std::vector<double> dTh, Point baseCoords, std::vector<double> angles) :
-		Manipulator(3, a, alpha, d, dTh, baseCoords, angles) {};
-	TreeAxisRrrManipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d,
-		std::vector<double> dTh, Point baseCoords, Point coords, Eigen::Matrix3d R) :
-		Manipulator(3, a, alpha, d, dTh, baseCoords, coords, R) {};
-	TreeAxisRrrManipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists,
-		std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles) :
-		Manipulator(3, unitTwists, Hiim1T0, baseCoords, angles) {};
-	TreeAxisRrrManipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists,
-		std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R) :
-		Manipulator(3, unitTwists, Hiim1T0, baseCoords, coords, R) {};
+	ThreeAxisRrrManipulator(std::vector<double> l);
+	ThreeAxisRrrManipulator(std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh) :
+		Manipulator(3, a, alpha, d, dTh) {};
+	ThreeAxisRrrManipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0) :
+		Manipulator(3, unitTwists, Hiim1T0) {};
+
+	std::vector<Angle> getAngles();
+	Eigen::Matrix4d getH();
 };
 
 
 class SixAxisStandardManipulator : public Manipulator
 {
 protected:
+	std::vector<double> l_; //linkLength
 	void inverseKinematic();
 public:
-	SixAxisStandardManipulator (std::vector<double> a, std::vector<double> alpha, std::vector<double> d, 
-								std::vector<double> dTh, Point baseCoords, std::vector<double> angles) :
-									Manipulator(6, a, alpha, d, dTh, baseCoords, angles) {};
-	SixAxisStandardManipulator (int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d,
-								std::vector<double> dTh, Point baseCoords, Point coords, Eigen::Matrix3d R):
-									Manipulator(6, a, alpha, d, dTh, baseCoords, coords, R) {};
-	SixAxisStandardManipulator (int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, 
-								std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, std::vector<double> angles):
-									Manipulator(6, unitTwists, Hiim1T0, baseCoords, angles) {};
-	SixAxisStandardManipulator (int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, 
-								std::vector<Eigen::Matrix4d> Hiim1T0, Point baseCoords, Point coords, Eigen::Matrix3d R):
-									Manipulator(6, unitTwists, Hiim1T0, baseCoords, coords, R) {};
+	SixAxisStandardManipulator(ForwardKinematicsMethod method, std::vector<double> linkLength);
 };
-
-//abstract class Manipulator manipulators with inverse kinematic

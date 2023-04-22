@@ -44,23 +44,27 @@ int getScreneToCentreDistance()
 //																															|
 //==========================================================================================================================|
 
-double l[] = {0, 100, 100, 100, 100}; //array of link lengths
-std::vector<double> a = { 0, l[2], 0, 0, 0, 0};
+std::vector<double>  l= {100, 100, 100, 100}; //array of link lengths
+std::vector<double> a = { 0, l[1], 0, 0, 0, 0};
 std::vector<double> alpha = { PI / 2, 0, PI / 2, -PI / 2, PI / 2, 0};
-std::vector<double> d = { l[1], 0, 0, l[3], 0, l[4]};
+std::vector<double> d = { l[0], 0, 0, l[2], 0, l[3]};
 std::vector<double> dTh = { 0, 0, PI/2, 0, 0, 0};
 Point baseCoords = Point(0.0, 0.0, 0.0);
 std::vector<double> angles = { 0, PI/3, 0, 0.0, 0.5, 0.3 };
 //std::vector<double> angles = { 0, 0, 0 , 0.0, 0, 0 };
-SixAxisStandardManipulator manipulator2 = SixAxisStandardManipulator(a, alpha,d, dTh, baseCoords, angles);
+//SixAxisStandardManipulator manipulator = SixAxisStandardManipulator(DH, l);
+ThreeAxisRrrManipulator manipulator = ThreeAxisRrrManipulator({ 100, 100, 100 });
+//Manipulator manipulator2 = Manipulator(6,a, alpha, d, dTh);
+
+//manipulator2.setAngles(angles);
 
 Eigen::Vector<double, 6> uT(0, 0, 1, 0, 0, 0);
 std::vector<Eigen::Vector<double, 6>> unitTwists = { uT, uT, uT, uT, uT, uT };
 Eigen::Matrix4d H10T0 { {1,0,0, 0},
 						{0,0,-1,0},
-						{0,1,0,l[1]},
+						{0,1,0,l[0]},
 						{0,0,0,1} };
-Eigen::Matrix4d H21T0 { {1,0,0, l[2]},
+Eigen::Matrix4d H21T0 { {1,0,0, l[1]},
 						{0,1,0,0},
 						{0,0,1,0},
 						{0,0,0,1} };
@@ -70,7 +74,7 @@ Eigen::Matrix4d H32T0 { {0,0,1, 0},
 						{0,0,0,1} };
 Eigen::Matrix4d H43T0 { {1,0,0, 0},
 						{0,0,1,0},
-						{0,-1,0,l[3]},
+						{0,-1,0,l[2]},
 						{0,0,0,1} };
 Eigen::Matrix4d H54T0 { {1,0,0, 0},
 						{0,0,-1,0},
@@ -79,10 +83,23 @@ Eigen::Matrix4d H54T0 { {1,0,0, 0},
 
 Eigen::Matrix4d H65T0 { {1,0,0, 0},
 						{0,1,0,0},
-						{0,0,1,l[4]},
+						{0,0,1,l[3]},
 						{0,0,0,1} };
 std::vector<Eigen::Matrix4d> Hiim1T0 = { H10T0, H21T0, H32T0, H43T0, H54T0, H65T0 };
-Manipulator manipulator = Manipulator(6, unitTwists, Hiim1T0, baseCoords, angles);
+Manipulator manipulator2 = Manipulator(6, unitTwists, Hiim1T0);
+//Manipulator manipulator = Manipulator(6, a, alpha, d, dTh);
+//manipulator.setAngles(angles);
+
+//std::vector<double> l = { 100.0, 100.0,100.0 };
+std::vector<double> l3 = { 100, 100, 100 };
+std::vector<double> a3 = { 0, l3[1], l3[2] };
+std::vector<double> alpha3 = { PI / 2, 0, 0 };
+std::vector<double> d3 = { l3[0], 0, 0 };
+std::vector<double> dTh3 = { 0, 0, 0 };
+ThreeAxisRrrManipulator manipulator3 = ThreeAxisRrrManipulator(l3);
+//Manipulator manipulator3 = Manipulator(3, a3, alpha3, d3, dTh3);
+//manipulator3.setAngles(angles);
+//Manipulator manipulator3 = TreeAxisRrrManipulator(a3, alpha3, d3, dTh3, baseCoords, angles);
 
 
 //==========================================================================================================================|
@@ -148,6 +165,7 @@ void special(int key, int, int)
 {
 	switch (key) {
 	case GLUT_KEY_RIGHT:
+		printf("a");
 		manipulator.changePosition(Point(getLinearSpeed(), 0, 0));
 		break;
 	case GLUT_KEY_LEFT: 
@@ -172,7 +190,8 @@ double getAngularSpeed()
 {
 	return toRadians(5);
 }
-void keyboard(unsigned char key, int x, int y) 
+
+void keyboard(unsigned char key, int x, int y)
 {
 	float cameraX0 = getScreneToCentreDistance();
 	switch (key) {
@@ -205,6 +224,7 @@ void keyboard(unsigned char key, int x, int y)
 			}
 			break;
 		//angles changing
+		
 		case 'q':
 			manipulator.changeAngle(1, getAngularSpeed());
 			break;
@@ -361,18 +381,37 @@ void init()
 	glDisable(GL_LIGHTING);
 }
 
+void drawHUD() //head Up Display
+{
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	gluOrtho2D(0.0, 1.0, 1.0, 0.0);
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	manipulator.printInfo();
+
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
+}
 
 void display()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.29, 0.29, 0.49, 1);
-	glLoadIdentity(); //clean matrix
 
+	/*glMatrixMode(GL_MODELVIEW);
+	manipulator.printInfo(getWindowWidth(), getWindowHeight());*/
+	glLoadIdentity(); //clean matrix
+	
 	//mouse wheel
 	gluLookAt(camera.getX(), camera.getY(), camera.getZ(),      //camera point
 		0.0, 0.0, 0.0,											//scene center
 		0.0, 0.0, 1.0);											//z scene vector
-
 
 	glRotatef(camera.getXAngle(), 1.0, 0.0, 0.0);
 	glRotatef(camera.getYAngle(), 0.0, 1.0, 0.0);
@@ -382,17 +421,23 @@ void display()
 	glTranslatef(mouse.getZ(), 0, 0);
 	glTranslatef(0, -(mouse.getX() - getWindowWidth() / 2), -(mouse.getY() - getWindowHeight() / 2));*/
 
-	manipulator2.drawBaseCoordSystem();
+	/*manipulator2.drawBaseCoordSystem();
 	manipulator2.drawManipulator();
 	manipulator2.drawCoordSystems();
-	manipulator2.drawAngles();
+	manipulator2.drawAngles();*/
 
 
 	manipulator.drawBaseCoordSystem();
 	manipulator.drawManipulator();
 	manipulator.drawCoordSystems();
 	manipulator.drawAngles();
+
+	/*manipulator3.drawBaseCoordSystem();
+	manipulator3.drawManipulator();
+	manipulator3.drawCoordSystems();
+	manipulator3.drawAngles();*/
 	
+	drawHUD();
 
 	glFlush(); //clean buffers
 	glutSwapBuffers(); //&
