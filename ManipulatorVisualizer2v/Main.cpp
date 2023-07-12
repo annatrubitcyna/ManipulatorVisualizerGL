@@ -4,20 +4,15 @@
 // fun.
 
 
-#include <cmath>
+#include <math.h>
 #include <stdio.h>
 
-
-
-#ifdef __APPLE_CC__
-#include <GLUT/glut.h>
-#else
 #include <GL/freeglut.h>
-#endif
 
-//#include <freeglut_ext.h>
 
 #include "Manipulator.h"
+
+
 
 // This is the number of frames per second to render.
 static const int FPS = 60;
@@ -53,8 +48,8 @@ Point baseCoords = Point(0.0, 0.0, 0.0);
 std::vector<double> angles = { 0, PI/3, 0, 0.0, 0.5, 0.3 };
 //std::vector<double> angles = { 0, 0, 0 , 0.0, 0, 0 };
 //SixAxisStandardManipulator manipulator = SixAxisStandardManipulator(DH, l);
-ThreeAxisRrrManipulator manipulator = ThreeAxisRrrManipulator({ 100, 100, 100 });
-//Manipulator manipulator2 = Manipulator(6,a, alpha, d, dTh);
+ThreeAxisRrrManipulator manipulator2 = ThreeAxisRrrManipulator({ 100, 100, 100 });
+//Manipulator manipulator = Manipulator(6,a, alpha, d, dTh);
 
 //manipulator2.setAngles(angles);
 
@@ -86,7 +81,7 @@ Eigen::Matrix4d H65T0 { {1,0,0, 0},
 						{0,0,1,l[3]},
 						{0,0,0,1} };
 std::vector<Eigen::Matrix4d> Hiim1T0 = { H10T0, H21T0, H32T0, H43T0, H54T0, H65T0 };
-Manipulator manipulator2 = Manipulator(6, unitTwists, Hiim1T0);
+Manipulator manipulator = Manipulator(6, unitTwists, Hiim1T0);
 //Manipulator manipulator = Manipulator(6, a, alpha, d, dTh);
 //manipulator.setAngles(angles);
 
@@ -165,7 +160,6 @@ void special(int key, int, int)
 {
 	switch (key) {
 	case GLUT_KEY_RIGHT:
-		printf("a");
 		manipulator.changePosition(Point(getLinearSpeed(), 0, 0));
 		break;
 	case GLUT_KEY_LEFT: 
@@ -383,10 +377,13 @@ void init()
 
 void drawHUD() //head Up Display
 {
+	//manipulator.printInfo();
+
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
-	gluOrtho2D(0.0, 1.0, 1.0, 0.0);
+	//gluOrtho2D(0.0, 1.0, 1.0, 0.0);
+	glOrtho(0, GLUT_SCREEN_WIDTH, GLUT_SCREEN_HEIGHT, 0, 0, 1);
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
@@ -413,9 +410,12 @@ void display()
 		0.0, 0.0, 0.0,											//scene center
 		0.0, 0.0, 1.0);											//z scene vector
 
+	glTranslatef(0, 0, -getWindowHeight()/9);
+
 	glRotatef(camera.getXAngle(), 1.0, 0.0, 0.0);
 	glRotatef(camera.getYAngle(), 0.0, 1.0, 0.0);
 	glRotatef(camera.getZAngle(), 0.0, 0.0, 1.0);
+
 
 	/*glTranslatef(0, mouse.getX()-getWindowWidth()/2, mouse.getY()-getWindowHeight()/2);
 	glTranslatef(mouse.getZ(), 0, 0);

@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <vector>
-#include <glm.hpp>
+#include <GL/glut.h>
+//#include <glm.hpp>
 #include <Eigen/Dense>
+
 
 
 
@@ -126,6 +128,7 @@ public:
 	//void drawAnglesMoreUnderstandable(); only for 6-axis manipulator
 
 	void printInfo();
+	void printSimpleInfo();
 };
 
 

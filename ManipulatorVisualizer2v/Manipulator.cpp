@@ -1,7 +1,19 @@
+#pragma comment(lib, "ftgl_dynamic_MT.lib")
+
 #include <iostream>
 #include <math.h>
-#include <GL/glut.h>
+
+#include <ftgl/FTGLTextureFont.h>
+//#include <GL/glut.h>
 #include "Manipulator.h"
+
+#include "font.h"
+#include <wchar.h>
+
+
+const char* ttf = "C:/Windows/Fonts/arial.ttf";
+const char* ttf2 = "C:/Users/Ann/Downloads/FTGL/arial.ttf";
+CFont* Font = new CFont(ttf, 24, 32);
 
 std::string sep = "\n----------------------------------------\n";
 Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
@@ -32,6 +44,12 @@ GLfloat* getColor(COLOR i)
 									{1.0, 0.0, 1.0}, {1.0, 0.7, 0.0}, {0.7, 1.0, 0.0}, {1.0, 1.0, 1.0}, {0.7, 0.0, 1.0} };
 	return colors[i];
 }
+
+//std::wstring roundN(double a, int n) 
+//{
+//	std::wstring b = std::to_wstring(round(a * pow(10, n)) / pow(10, n)).substr(0, n+);
+//	return b;
+//}
 
 //==========================================================================================================================|
 //																															|
@@ -235,10 +253,20 @@ void Manipulator::setPosition(Point coords)
 void Manipulator::forwardKinematic()
 {
 	if (forwardKinematicsMethod_ == DH) {
+		int start_time = clock(); // начальное время
 		forwardKinematicDH();
+		int end_time = clock(); // конечное время
+		int search_time_DH = (end_time - start_time); // искомое время
+		/*printf("DH_time: ");
+		printf("%i\n", search_time_DH);*/
 	}
 	else {
+		int start_time = clock(); // начальное время
 		forwardKinematicEXP();
+		int end_time = clock(); // конечное время
+		int search_time_DH = (end_time - start_time); // искомое время
+		/*printf("EXP_time: ");
+		printf("%i\n", search_time_DH);*/
 	}
 }
 
@@ -489,7 +517,58 @@ void Manipulator::drawBaseCoordSystem() {
 //																															|
 //==========================================================================================================================|
 
-void Manipulator::printInfo() {
+void Manipulator::printInfo() 
+{	
+	glRasterPos2f(0.3, 0.3);
+	glDisable(GL_DEPTH_TEST);
+	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
+
+	////////////////////////////////////////////////// Angles ///////////////////////////////////////////////////////////////
+
+	int kSimb = 6; // number of simbols after comma for degrees=kSimb-4, for radians=kSimb-2
+	float xShift = 12;
+	float xStart = (200 - xShift * kAxis_) / 2;
+	float yShift = 7;
+	float yStart = 2;
+	//horizontal lines
+	for (int i = 0; i < 4; i++) {
+		glBegin(GL_LINES);
+		glVertex2f(xStart - 2, yStart+i*yShift );
+		glVertex2f(xStart + xShift * kAxis_ -2, yStart + i * yShift);
+		glEnd();
+	}
+	glBegin(GL_LINES);
+	glVertex2f(xStart - 2, yShift * 5);
+	glVertex2f(xStart + xShift * kAxis_ -2, yShift*5);
+	glEnd();
+	for (int i = 0; i < kAxis_; i++) {
+		float x = xStart + xShift * i;
+		//vertical lines
+		glBegin(GL_LINES);
+		glVertex2f(x-2, yStart);
+		glVertex2f(x-2, yShift * 5);
+		glEnd();
+
+		//angle number
+		Font->Print(x+4, yShift, std::to_wstring(i).c_str());
+		//angle in degrees
+		std::wstring text = std::to_wstring(toDegrees(angles_[i].get())).substr(0, kSimb);
+		Font->Print(x, yShift*2, text.c_str());
+		//angle in radians
+		text = std::to_wstring(angles_[i].get()).substr(0, kSimb);
+		Font->Print(x, yShift*3, text.c_str());
+	}
+	float x = xStart + xShift * kAxis_ -2;
+	glBegin(GL_LINES);
+	glVertex2f(x, yStart);
+	glVertex2f(x, yShift * 5);
+	glEnd();
+
+	glEnable(GL_DEPTH_TEST);
+}
+
+void Manipulator::printSimpleInfo() 
+{
 	glColor3f(getColor(WHITE)[0], getColor(WHITE)[1], getColor(WHITE)[2]);
 	glBegin(GL_LINES);
 	glVertex2f(0.333, 0.1);
@@ -497,16 +576,20 @@ void Manipulator::printInfo() {
 	glEnd();
 
 	glColor3f(1.0, 0.0, 0.0);
-	glRasterPos2f(0.333, 0.1); //define position on the screen
-	std::string string = std::to_string(angles_[0].get());
-	const char* string1 = "Text";
+	//glRasterPos2f(0.333, 0.1); //define position on the screen
+	//std::string string = std::to_string(angles_[0].get());
+	//const char* string1 = "Text";
 
 	/*while (*string1) {*/
 		//glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *string1++);
 	//}
+	int kSimb = 5; // number of simbols after comma
 
-	for (int i = 0; i < 5;  i++) {
-		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
+	for (int i = 0; i < kAxis_; i++) {
+		glRasterPos2f(0.333+0.333/kAxis_*i, 0.1); //define position on the screen
+		for (int j = 0; j < kSimb; j++) {
+			glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(angles_[i].get())[j]);
+		}
 	}
 }
 
