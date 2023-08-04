@@ -307,6 +307,14 @@ void mouseButton(int button, int state, int x, int y)
 	if (button == GLUT_MIDDLE_BUTTON && state == GLUT_UP) {
 		isCameraRotate = false;
 	}
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+		float xPr = float(x) / getWindowWidth() * 200; //change to 200 %
+		float yPr = float(y) / getWindowHeight() * 200;
+		manipulator.changeByMouse(xPr, yPr);
+	}
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
+		manipulator.stopChangeByMouse();
+	}
 }
 
 int lastMx = 0; //last mouse point

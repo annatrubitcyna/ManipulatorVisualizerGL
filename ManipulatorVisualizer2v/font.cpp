@@ -3,13 +3,9 @@
 
 #include "font.h"
 
-// Конструктор класса.
-// Передаваемые параметры: имя файла шрифта, размер и глубина шрифта.
 CFont::CFont(const char* ttf, int FSize, int FDepth)
 {
-	// Создаём новый битмапный шрифт
 	this->Font = new FTGLPixmapFont(ttf);
-	// Устанавливаем размер шрифта или выходим с ошибкой
 	if (!Font->FaceSize(FSize)) {
 		//MessageBox(NULL, "Cant set font FaceSize", "Error", MB_OK);
 		std::cout << "ERROR::Cant set font FaceSize" << std::endl;

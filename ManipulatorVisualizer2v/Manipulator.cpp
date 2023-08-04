@@ -32,6 +32,14 @@ double toDegrees(double angle)
 	return angle * 180 / PI;
 }
 
+void drawLine(float x1, float y1, float x2, float y2) 
+{
+	glBegin(GL_LINES);
+	glVertex2f(x1, y1);
+	glVertex2f(x2, y2);
+	glEnd();
+}
+
 Eigen::Matrix3d getR(Eigen::Matrix4d H)
 {
 	return H.block<3, 3>(0, 0);
@@ -155,6 +163,7 @@ void Manipulator::initializeVectorsAsNull() {
 		joints_.push_back(Point(0.0, 0.0, 0.0));
 		angles_.push_back(Angle(0.0));
 		H_.push_back(Eigen::Matrix4d::Zero());
+		if (i < 3)	isChangedByMouse_.push_back(0);
 	}
 }
 
@@ -424,6 +433,10 @@ void Manipulator::drawManipulator()
 			glEnd();
 		}
 	}
+	
+	//change while mouse is pressed
+	if (isChangedByMouse_[0] == 1)
+		changeByMouse(isChangedByMouse_[1], isChangedByMouse_[2]);
 }
 
 float getAxisWidth() 
@@ -516,82 +529,288 @@ void Manipulator::drawBaseCoordSystem() {
 //														PRINTING															|
 //																															|
 //==========================================================================================================================|
+//void printTable(float xStart, float yStart, float xShift, float yShift, std::vector<const wchar_t*> columnNames,
+//	std::vector<const wchar_t*> rowNames, std::vector<std::vector<const wchar_t*>> data)
+//{
+//	int kRows = rowNames.size();
+//	int kColumns = columnNames.size();
+//
+//	glRasterPos2f(0.3, 0.3);
+//	glDisable(GL_DEPTH_TEST);
+//	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
+//
+//	//horizontal lines
+//	for (int i = 0; i < kRows + 1; i++) {
+//		glBegin(GL_LINES);
+//		glVertex2f(xStart, yStart + i * yShift);
+//		glVertex2f(xStart + xShift * kRows - 2, yStart + i * yShift);
+//		glEnd();
+//	}
+//	//vertical lines 
+//	for (int i = 0; i < kColumns + 1; i++) {
+//		glBegin(GL_LINES);
+//		glVertex2f(xStart + xShift * i - 2, yStart);
+//		glVertex2f(xStart + xShift * i - 2, yStart + yShift * kRows);
+//		glEnd();
+//	}
+//}
 
-void Manipulator::printInfo() 
+float getXShift() 
+{
+	return 12;
+}
+float getYShift() 
+{
+	return 7;
+}
+float getXStartT(int kAxis)
+{
+	return (200 - getXShift() * (kAxis + 1)) / 2;
+}
+float getYStartT() 
+{
+	return 2;
+}
+float getXStartL()
+{
+	return 5;
+}
+float getYStartL(int kAxis)
+{
+	return (200 - getYShift() * (kAxis + 1)) / 2;
+}
+float getXStartR()
+{
+	return 200 - 50;
+}
+float getYStartR()
+{
+	return (200 - getYShift() * 7) / 2;
+}
+
+void Manipulator::printAngles() 
 {	
 	glRasterPos2f(0.3, 0.3);
 	glDisable(GL_DEPTH_TEST);
 	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
 
-	////////////////////////////////////////////////// Angles ///////////////////////////////////////////////////////////////
-
 	int kSimb = 6; // number of simbols after comma for degrees=kSimb-4, for radians=kSimb-2
-	float xShift = 12;
-	float xStart = (200 - xShift * kAxis_) / 2;
-	float yShift = 7;
-	float yStart = 2;
+	float xShift = getXShift();
+	float xStart = getXStartT(kAxis_);
+	float yShift = getYShift();
+	float yStart = getYStartT();
+	int kLines = 5;
 	//horizontal lines
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < kLines+1; i++) {
 		glBegin(GL_LINES);
-		glVertex2f(xStart - 2, yStart+i*yShift );
-		glVertex2f(xStart + xShift * kAxis_ -2, yStart + i * yShift);
+		glVertex2f(xStart, yStart+i*yShift );
+		glVertex2f(xStart + xShift * (kAxis_+1) -2, yStart + i * yShift);
 		glEnd();
 	}
+
+	Font->Print(xStart+ xShift/4, yShift, L"¹");
+	Font->Print(xStart + xShift / 4, yShift*2, L"deg");
+	Font->Print(xStart + xShift / 4, yShift * 3, L"rad");
+	Font->Print(xStart + xShift / 4, yShift * 4, L"more");
+	Font->Print(xStart + xShift / 4, yShift * 5, L"less");
+
+	//first vertical line
 	glBegin(GL_LINES);
-	glVertex2f(xStart - 2, yShift * 5);
-	glVertex2f(xStart + xShift * kAxis_ -2, yShift*5);
+	glVertex2f(xStart, yStart);
+	glVertex2f(xStart, yStart+yShift * kLines);
 	glEnd();
 	for (int i = 0; i < kAxis_; i++) {
-		float x = xStart + xShift * i;
+		float x = xStart + xShift * (i+1)+0.5;
 		//vertical lines
 		glBegin(GL_LINES);
 		glVertex2f(x-2, yStart);
-		glVertex2f(x-2, yShift * 5);
+		glVertex2f(x-2, yStart + yShift * kLines);
 		glEnd();
 
 		//angle number
-		Font->Print(x+4, yShift, std::to_wstring(i).c_str());
+		Font->Print(x+4, yShift, std::to_wstring(i+1).c_str());
 		//angle in degrees
 		std::wstring text = std::to_wstring(toDegrees(angles_[i].get())).substr(0, kSimb);
 		Font->Print(x, yShift*2, text.c_str());
 		//angle in radians
 		text = std::to_wstring(angles_[i].get()).substr(0, kSimb);
 		Font->Print(x, yShift*3, text.c_str());
+
+		Font->Print(x+4, yShift * 4, L"\u2191");
+		Font->Print(x+4, yShift * 5, L"\u2193");
 	}
-	float x = xStart + xShift * kAxis_ -2;
+	// last vertical line
+	float x = xStart + xShift * (kAxis_+1) -2;
 	glBegin(GL_LINES);
 	glVertex2f(x, yStart);
-	glVertex2f(x, yShift * 5);
+	glVertex2f(x, yStart + yShift * kLines);
 	glEnd();
 
 	glEnable(GL_DEPTH_TEST);
 }
 
-void Manipulator::printSimpleInfo() 
+void Manipulator::printCoords() 
 {
-	glColor3f(getColor(WHITE)[0], getColor(WHITE)[1], getColor(WHITE)[2]);
+	glRasterPos2f(0.3, 0.3);
+	glDisable(GL_DEPTH_TEST);
+	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
+
+	int kSimb = 6; // number of simbols after comma for coordinates=kSimb-4
+	float xShift = getXShift();
+	float xStart = getXStartL();
+	float yShift = getYShift();
+	float yStart = getYStartL(kAxis_);
+	int kColumns = 5;
+	int kRows = 0;
+	for (int i = 1; i < kAxis_; i++){
+		if (distance(joints_[i], joints_[i + 1]) > 0.0001){
+			kRows += 1;
+		}
+	}
+
+	//vertical lines
 	glBegin(GL_LINES);
-	glVertex2f(0.333, 0.1);
-	glVertex2f(0.666, 0.1);
+	glVertex2f(xStart, yStart);
+	glVertex2f(xStart, yStart + yShift * (kRows + 3));
+	glEnd();
+	for (int i = 1; i < kColumns; i++) {
+		glBegin(GL_LINES);
+		glVertex2f(xStart + i * xShift - xShift/4, yStart);
+		glVertex2f(xStart + i * xShift - xShift / 4, yStart + yShift * (kRows + 3) );
+		glEnd();
+	}
+
+	float y = yStart + yShift - 2;
+	Font->Print(xStart + xShift / 4+1, y, L"¹");
+	Font->Print(xStart + xShift + xShift / 4, y, L"x");
+	Font->Print(xStart + 2 * xShift + xShift / 4, y, L"y");
+	Font->Print(xStart + 3 * xShift + xShift / 4, y, L"z");
+	Font->Print(xStart + 2, yStart + yShift * (kRows + 2) - 2, L"more");
+	Font->Print(xStart + 2, yStart + yShift * (kRows + 3) - 2, L"less");
+
+	//horizontal 
+	for (int i = 0; i < kRows + 4; i++) {
+		glBegin(GL_LINES);
+		glVertex2f(xStart, yStart+i*yShift);
+		glVertex2f(xStart + xShift * (kColumns-1) - xShift / 4, yStart+i*yShift);
+		glEnd();
+	}
+	int j = 0;
+	for (int i = 1; i < kAxis_; i++) {
+		if (distance(joints_[i], joints_[i + 1]) > 0.0001) {
+			float y = yStart + yShift * (j + 2) - 2;
+			//coords number
+			Font->Print(xStart + xShift / 4+1, y, std::to_wstring(j + 1).c_str());
+			//x, y, z coordinates
+			std::wstring text = std::to_wstring(joints_[i].x).substr(0, kSimb);
+			Font->Print(xStart + xShift-0.5, y, text.c_str());
+			text = std::to_wstring(joints_[i].y).substr(0, kSimb);
+			Font->Print(xStart + xShift*2-0.5, y, text.c_str());
+			text = std::to_wstring(joints_[i].z).substr(0, kSimb);
+			Font->Print(xStart + xShift*3-0.5, y, text.c_str());
+
+			//Font->Print(x + 4, yShift * 4, L"\u2191");
+			//Font->Print(x + 4, yShift * 5, L"\u2193");
+			j += 1;
+		}
+	}
+	//more and less
+	y= yStart + yShift * (kRows + 2)-2;
+	Font->Print(xStart + xShift - 0.5+4, y, L"\u2191");
+	Font->Print(xStart + xShift * 2 - 0.5+4, y, L"\u2191");
+	Font->Print(xStart + xShift * 3 - 0.5+4, y, L"\u2191");
+	y = yStart + yShift * (kRows + 3) - 2;
+	Font->Print(xStart + xShift - 0.5+4, y, L"\u2193");
+	Font->Print(xStart + xShift * 2 - 0.5+4, y, L"\u2193");
+	Font->Print(xStart + xShift * 3 - 0.5+4, y, L"\u2193");
+
+	//frame around grip coordinates
+	glBegin(GL_LINES);
+	glVertex2f(xStart-0.5, yStart+yShift*kRows);
+	glVertex2f(xStart-0.5, yStart + yShift * (kRows + 1));
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex2f(xStart + (kColumns-1) * xShift - xShift / 4+0.5, yStart + yShift * kRows);
+	glVertex2f(xStart + (kColumns - 1) * xShift - xShift / 4+0.5, yStart + yShift * (kRows + 1));
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex2f(xStart-0.5, yStart+yShift * kRows - 0.5);
+	glVertex2f(xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * kRows-0.5);
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex2f(xStart - 0.5, yStart + yShift * (kRows+1)+0.5);
+	glVertex2f(xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart +yShift * (kRows+1)+0.5);
 	glEnd();
 
-	glColor3f(1.0, 0.0, 0.0);
-	//glRasterPos2f(0.333, 0.1); //define position on the screen
-	//std::string string = std::to_string(angles_[0].get());
-	//const char* string1 = "Text";
+	glEnable(GL_DEPTH_TEST);
+}
+void Manipulator::printFunctions()
+{
+	glRasterPos2f(0.3, 0.3);
+	glDisable(GL_DEPTH_TEST);
+	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
 
-	/*while (*string1) {*/
-		//glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *string1++);
-	//}
-	int kSimb = 5; // number of simbols after comma
+	float xShift1 = 30;
+	float xShift2 = 5;
+	float xStart = getXStartR();
+	float yShift = getYShift();
+	float yStart = getYStartR();
+	int kRows = 7;
 
-	for (int i = 0; i < kAxis_; i++) {
-		glRasterPos2f(0.333+0.333/kAxis_*i, 0.1); //define position on the screen
-		for (int j = 0; j < kSimb; j++) {
-			glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(angles_[i].get())[j]);
+	//vertical lines
+	float yEnd = yStart + yShift * kRows;
+	drawLine(xStart, yStart,
+			 xStart, yEnd);
+	drawLine(xStart+xShift1, yStart,
+			 xStart+xShift1, yEnd);
+	drawLine(xStart + xShift1+xShift2, yStart,
+		xStart + xShift1+xShift2, yEnd);
+
+	Font->Print(xStart + 2, yStart+yShift-2, L"error");
+	Font->Print(xStart + 2, yStart +2*yShift - 2, L"starting position");
+	Font->Print(xStart + 2, yStart + 3 * yShift - 2, L"mouse control");
+	Font->Print(xStart + 2, yStart + 4 * yShift - 2, L"go with speed");
+	Font->Print(xStart + 2, yStart + 5 * yShift - 2, L"go with grip speed");
+	Font->Print(xStart + 2, yStart + 6 * yShift - 2, L"go with grip speed T");
+	Font->Print(xStart + 2, yStart + 7 * yShift - 2, L"go by GCODE's");
+	// f (f, b), (r, l), (t, b) 
+	// * (*, x), (->, <-), (|, |)
+
+	//horizontal 
+	for (int i = 0; i < kRows + 1; i++) {
+		drawLine(xStart, yStart + i * yShift,
+				 xStart + xShift1+xShift2, yStart + i * yShift);
+	}
+
+}
+void Manipulator::printInfo() {
+	printAngles();
+	printCoords();
+	printFunctions();
+}
+void Manipulator::changeByMouse(float x, float y) {
+	float angularSpeed= toRadians(1);
+	float xShift = getXShift();
+	float xStart = getXStartT(kAxis_);
+	float yShift = getYShift();
+	float yStart = getYStartT();
+	int i = round((x - xStart - 0.5) / xShift );
+	if (0 < i < kAxis_) {
+		if (yStart + yShift * 3 < y && y < yStart + yShift * 4) {
+			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+			changeAngle(i, angularSpeed);
+		}
+		if (yStart + yShift * 4 < y && y < yStart + yShift * 5) {
+			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+			changeAngle(i, -angularSpeed);
 		}
 	}
 }
+void Manipulator::stopChangeByMouse() {
+	isChangedByMouse_[0] = 0;
+}
+
+
 
 //==========================================================================================================================|
 //																															|

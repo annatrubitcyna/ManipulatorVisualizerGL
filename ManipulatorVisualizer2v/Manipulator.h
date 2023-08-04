@@ -105,6 +105,12 @@ protected:
 	void countJacobian();
 	void countGeomJacobian();
 
+	void printAngles();
+	void printCoords();
+	void printFunctions();
+
+	std::vector<int> isChangedByMouse_; //1- yes or not, 2,3- x y mouse coords 
+
 public:
 	Manipulator() {};
 	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh);
@@ -129,6 +135,9 @@ public:
 
 	void printInfo();
 	void printSimpleInfo();
+
+	void changeByMouse(float x, float y);
+	void stopChangeByMouse();
 };
 
 
