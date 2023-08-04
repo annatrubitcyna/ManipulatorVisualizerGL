@@ -66,10 +66,16 @@ enum ForwardKinematicsMethod {
 	EXP //matrix exponent product method
 };
 
+enum Error {
+	OK,               //no error 
+	OUT_OF_WORKSPACE  //can't solve inverse kinematics problem 
+};
+
 class Manipulator {
 protected:
 	//main parameters
 	int kAxis_;
+	int kJoints_;
 	ForwardKinematicsMethod forwardKinematicsMethod_;
 
 	// Denavit-Hartenberg parameters
@@ -88,6 +94,7 @@ protected:
 	std::vector<Angle> angles_; //angle around zi-1 from xi-1 to xi
 	std::vector<Eigen::Matrix4d> H_; //homogeneous transformation matrices (kAxis)
 	Eigen::Matrix3d R_; //rotation matrix for grip
+	Error error_;
 	
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> J_; // DH kAxis, kAxis
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> geomJ_; //EXP kAxis, kAxis

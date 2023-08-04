@@ -178,6 +178,11 @@ Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> a
 	initializeVectorsAsNull();
 	J_.resize(kAxis_, kAxis_);
 	setAngles(angles_);
+	kJoints_ = 0;
+	for (int i = 0; i < kAxis_; i++) {
+		if (distance(joints_[i], joints_[i + 1]) > 0.0001) kJoints_ += 1;
+	}
+	error_ = OK;
 }
 
 Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTwists, std::vector<Eigen::Matrix4d> Hiim1T0)
@@ -189,6 +194,11 @@ Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTw
 	initializeVectorsAsNull();
 	geomJ_.resize(kAxis_, kAxis_);
 	setAngles(angles_);
+	kJoints_ = 0;
+	for (int i = 0; i < kAxis_; i++) {
+		if (distance(joints_[i], joints_[i + 1]) > 0.0001) kJoints_ += 1;
+	}
+	error_ = OK;
 }
 
 //==========================================================================================================================|
@@ -296,7 +306,7 @@ void Manipulator::forwardKinematicDH()
 		joints_[i+1] = Point(joint);
 	}
 	R_ = getR(H_[kAxis_-1]);
-	coords_ = joints_[kAxis_-1];
+	coords_ = joints_[kAxis_];
 }
 
 void Manipulator::countJacobian() 
@@ -392,7 +402,7 @@ void Manipulator::forwardKinematicEXP()
 		joints_[i + 1] = Point(joint);
 	}
 	R_ = getR(H_[kAxis_ - 1]);
-	coords_ = joints_[kAxis_ - 1];
+	coords_ = joints_[kAxis_];
 }
 
 void Manipulator::countGeomJacobian()
@@ -529,31 +539,6 @@ void Manipulator::drawBaseCoordSystem() {
 //														PRINTING															|
 //																															|
 //==========================================================================================================================|
-//void printTable(float xStart, float yStart, float xShift, float yShift, std::vector<const wchar_t*> columnNames,
-//	std::vector<const wchar_t*> rowNames, std::vector<std::vector<const wchar_t*>> data)
-//{
-//	int kRows = rowNames.size();
-//	int kColumns = columnNames.size();
-//
-//	glRasterPos2f(0.3, 0.3);
-//	glDisable(GL_DEPTH_TEST);
-//	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
-//
-//	//horizontal lines
-//	for (int i = 0; i < kRows + 1; i++) {
-//		glBegin(GL_LINES);
-//		glVertex2f(xStart, yStart + i * yShift);
-//		glVertex2f(xStart + xShift * kRows - 2, yStart + i * yShift);
-//		glEnd();
-//	}
-//	//vertical lines 
-//	for (int i = 0; i < kColumns + 1; i++) {
-//		glBegin(GL_LINES);
-//		glVertex2f(xStart + xShift * i - 2, yStart);
-//		glVertex2f(xStart + xShift * i - 2, yStart + yShift * kRows);
-//		glEnd();
-//	}
-//}
 
 float getXShift() 
 {
@@ -573,7 +558,7 @@ float getYStartT()
 }
 float getXStartL()
 {
-	return 5;
+	return 1;
 }
 float getYStartL(int kAxis)
 {
@@ -581,11 +566,17 @@ float getYStartL(int kAxis)
 }
 float getXStartR()
 {
-	return 200 - 50;
+	return 200 - 37;
 }
 float getYStartR()
 {
 	return (200 - getYShift() * 7) / 2;
+}
+float getXShiftR1() {
+	return 30;
+}
+float getXShiftR2() {
+	return 5;
 }
 
 void Manipulator::printAngles() 
@@ -661,12 +652,7 @@ void Manipulator::printCoords()
 	float yShift = getYShift();
 	float yStart = getYStartL(kAxis_);
 	int kColumns = 5;
-	int kRows = 0;
-	for (int i = 1; i < kAxis_; i++){
-		if (distance(joints_[i], joints_[i + 1]) > 0.0001){
-			kRows += 1;
-		}
-	}
+	int kRows = kJoints_;
 
 	//vertical lines
 	glBegin(GL_LINES);
@@ -696,8 +682,8 @@ void Manipulator::printCoords()
 		glEnd();
 	}
 	int j = 0;
-	for (int i = 1; i < kAxis_; i++) {
-		if (distance(joints_[i], joints_[i + 1]) > 0.0001) {
+	for (int i = 1; i < kAxis_+1; i++) {
+		if (distance(joints_[i-1], joints_[i]) > 0.0001) {
 			float y = yStart + yShift * (j + 2) - 2;
 			//coords number
 			Font->Print(xStart + xShift / 4+1, y, std::to_wstring(j + 1).c_str());
@@ -708,9 +694,6 @@ void Manipulator::printCoords()
 			Font->Print(xStart + xShift*2-0.5, y, text.c_str());
 			text = std::to_wstring(joints_[i].z).substr(0, kSimb);
 			Font->Print(xStart + xShift*3-0.5, y, text.c_str());
-
-			//Font->Print(x + 4, yShift * 4, L"\u2191");
-			//Font->Print(x + 4, yShift * 5, L"\u2193");
 			j += 1;
 		}
 	}
@@ -750,8 +733,8 @@ void Manipulator::printFunctions()
 	glDisable(GL_DEPTH_TEST);
 	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
 
-	float xShift1 = 30;
-	float xShift2 = 5;
+	float xShift1 = getXShiftR1();
+	float xShift2 = getXShiftR2();
 	float xStart = getXStartR();
 	float yShift = getYShift();
 	float yStart = getYStartR();
@@ -766,13 +749,15 @@ void Manipulator::printFunctions()
 	drawLine(xStart + xShift1+xShift2, yStart,
 		xStart + xShift1+xShift2, yEnd);
 
-	Font->Print(xStart + 2, yStart+yShift-2, L"error");
-	Font->Print(xStart + 2, yStart +2*yShift - 2, L"starting position");
+	std::wstring text = std::to_wstring(error_);
+	Font->Print(xStart + 2, yStart + yShift-2, text.c_str());
+	Font->Print(xStart + 2, yStart + 2*yShift - 2, L"starting position");
 	Font->Print(xStart + 2, yStart + 3 * yShift - 2, L"mouse control");
 	Font->Print(xStart + 2, yStart + 4 * yShift - 2, L"go with speed");
 	Font->Print(xStart + 2, yStart + 5 * yShift - 2, L"go with grip speed");
 	Font->Print(xStart + 2, yStart + 6 * yShift - 2, L"go with grip speed T");
 	Font->Print(xStart + 2, yStart + 7 * yShift - 2, L"go by GCODE's");
+	//view: pictures from Solidworks 
 	// f (f, b), (r, l), (t, b) 
 	// * (*, x), (->, <-), (|, |)
 
@@ -789,6 +774,7 @@ void Manipulator::printInfo() {
 	printFunctions();
 }
 void Manipulator::changeByMouse(float x, float y) {
+	//angles
 	float angularSpeed= toRadians(1);
 	float xShift = getXShift();
 	float xStart = getXStartT(kAxis_);
@@ -800,9 +786,34 @@ void Manipulator::changeByMouse(float x, float y) {
 			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
 			changeAngle(i, angularSpeed);
 		}
-		if (yStart + yShift * 4 < y && y < yStart + yShift * 5) {
+		else if (yStart + yShift * 4 < y && y < yStart + yShift * 5) {
 			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
 			changeAngle(i, -angularSpeed);
+		}
+		else {
+			float linearSpeed = 1;
+			xShift = getXShift();
+			xStart = getXStartL();
+			yShift = getYShift();
+			yStart = getYStartL(kAxis_);
+			i = round((x - xStart + 0.5) / xShift);
+			int sign = 0;
+			if (yStart + yShift * (kJoints_ - 1) < y && y < yStart + yShift * (kJoints_)) sign = 1;
+			if (yStart + yShift * (kJoints_) < y && y < yStart + yShift * (kJoints_ + 1)) sign = -1;
+			Point dCoords = Point(0, 0, 0);
+			if (i == 1) dCoords.x = sign * linearSpeed;
+			if (i == 2) dCoords.y = sign * linearSpeed;
+			if (i == 3) dCoords.z = sign * linearSpeed;
+			changePosition(dCoords);
+		}
+	}
+
+	if (getXStartR()<x<getXStartR()+getXShiftR1()) {
+		if (getYStartR() + getYShift()<y< getYStartR() + 2*getYShift()) {
+			for (int i = 0; i < kAxis_; i++) {
+				angles_[i] = Angle(0);
+			}
+			setAngles(angles_);
 		}
 	}
 }
@@ -814,7 +825,7 @@ void Manipulator::stopChangeByMouse() {
 
 //==========================================================================================================================|
 //																															|
-//													TREE AXIS RRR MANIPULATOR												|
+//													THREE AXIS RRR MANIPULATOR												|
 //																															|
 //==========================================================================================================================|
 
@@ -836,6 +847,11 @@ ThreeAxisRrrManipulator::ThreeAxisRrrManipulator(std::vector<double> l)
 	initializeVectorsAsNull();
 	J_.resize(kAxis_, kAxis_);
 	setAngles(angles_);
+	kJoints_ = 0;
+	for (int i = 0; i < kAxis_; i++) {
+		if (distance(joints_[i], joints_[i + 1]) > 0.0001) kJoints_ += 1;
+	}
+	error_ = OK;
 }
 
 bool firstAngleCloserToThird(Angle first, Angle second, Angle third)
@@ -849,13 +865,12 @@ void ThreeAxisRrrManipulator::inverseKinematic()
 	double r2 = coords_.z - d_[0];
 	double r3 = sqrt(sq(r1) + sq(r2));
 
-
 	if (abs((sq(a_[1]) + sq(r3) - sq(a_[2])) / (2 * a_[1] * r3)) <= 1) {
 		Angle psi1 = Angle(acos((sq(a_[1]) + sq(r3) - sq(a_[2])) / (2 * a_[1] * r3)));
 		Angle psi2 = Angle(atan2(r2, r1));
 		if (abs((sq(a_[1]) + sq(a_[2]) - sq(r3)) / (2 * a_[1] * a_[2])) <= 1) {
 			Angle psi3 = Angle(acos((sq(a_[1]) + sq(a_[2]) - sq(r3)) / (2 * a_[1] * a_[2])));
-			//exeption = "OK";
+			error_ = OK;
 
 			Angle t11 = Angle(atan2(coords_.y, coords_.x));
 			Angle t12 = t11 + Angle(PI);
@@ -896,11 +911,11 @@ void ThreeAxisRrrManipulator::inverseKinematic()
 
 		}
 		else {
-			//exeption = "threeAxisBackwardTransferEx";
+			error_ = OUT_OF_WORKSPACE;
 		}
 	}
 	else {
-		//exeption = "threeAxisBackwardTransferEx";
+		error_ = OUT_OF_WORKSPACE;
 	}
 	
 }
@@ -965,6 +980,11 @@ SixAxisStandardManipulator::SixAxisStandardManipulator(ForwardKinematicsMethod m
 	initializeVectorsAsNull();
 	J_.resize(kAxis_, kAxis_);
 	setAngles(angles_);
+	kJoints_ = 0;
+	for (int i = 0; i < kAxis_; i++) {
+		if (distance(joints_[i], joints_[i + 1]) > 0.0001) kJoints_ += 1;
+	}
+	error_ = OK;
 }
 
 std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R) {

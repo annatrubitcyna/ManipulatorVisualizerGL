@@ -47,7 +47,7 @@ std::vector<double> dTh = { 0, 0, PI/2, 0, 0, 0};
 Point baseCoords = Point(0.0, 0.0, 0.0);
 std::vector<double> angles = { 0, PI/3, 0, 0.0, 0.5, 0.3 };
 //std::vector<double> angles = { 0, 0, 0 , 0.0, 0, 0 };
-//SixAxisStandardManipulator manipulator = SixAxisStandardManipulator(DH, l);
+SixAxisStandardManipulator manipulator = SixAxisStandardManipulator(DH, l);
 ThreeAxisRrrManipulator manipulator2 = ThreeAxisRrrManipulator({ 100, 100, 100 });
 //Manipulator manipulator = Manipulator(6,a, alpha, d, dTh);
 
@@ -81,7 +81,7 @@ Eigen::Matrix4d H65T0 { {1,0,0, 0},
 						{0,0,1,l[3]},
 						{0,0,0,1} };
 std::vector<Eigen::Matrix4d> Hiim1T0 = { H10T0, H21T0, H32T0, H43T0, H54T0, H65T0 };
-Manipulator manipulator = Manipulator(6, unitTwists, Hiim1T0);
+Manipulator manipulator4 = Manipulator(6, unitTwists, Hiim1T0);
 //Manipulator manipulator = Manipulator(6, a, alpha, d, dTh);
 //manipulator.setAngles(angles);
 
