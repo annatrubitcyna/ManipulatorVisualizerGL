@@ -20,17 +20,17 @@ static const int FPS = 60;
 
 int getWindowWidth() 
 {
-	return 1600;
+	return 1500;
 }
 
 int getWindowHeight()
 {
-	return 900;
+	return 700;
 }
 
 int getScreneToCentreDistance()
 {
-	return 800;
+	return 700;
 }
 
 //==========================================================================================================================|
@@ -301,10 +301,10 @@ bool isCameraRotate = false;
 
 void mouseButton(int button, int state, int x, int y)
 {
-	if (button == GLUT_MIDDLE_BUTTON && state == GLUT_DOWN) {
+	if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
 		isCameraRotate = true;
 	}
-	if (button == GLUT_MIDDLE_BUTTON && state == GLUT_UP) {
+	if (button == GLUT_RIGHT_BUTTON && state == GLUT_UP) {
 		isCameraRotate = false;
 	}
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {

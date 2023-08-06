@@ -71,6 +71,7 @@ enum Error {
 	OUT_OF_WORKSPACE  //can't solve inverse kinematics problem 
 };
 
+
 class Manipulator {
 protected:
 	//main parameters
@@ -104,10 +105,10 @@ protected:
 	void initializeVectorsAsNull();
 	void setAngles(std::vector<Angle> angles);
 
-	void forwardKinematic();
-	void forwardKinematicDH();
-	void forwardKinematicEXP();
-	virtual void inverseKinematic(); //different to different types of manipulator
+	void forwardKinematics();
+	void forwardKinematicsDH();
+	void forwardKinematicsEXP();
+	virtual void inverseKinematics(); //different to different types of manipulator
 
 	void countJacobian();
 	void countGeomJacobian();
@@ -152,8 +153,9 @@ class ThreeAxisRrrManipulator : public Manipulator
 {
 protected:
 	std::vector<double> l_;
-	void inverseKinematic();
+	void inverseKinematics();
 public:
+	ThreeAxisRrrManipulator();
 	ThreeAxisRrrManipulator(std::vector<double> l);
 	ThreeAxisRrrManipulator(std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh) :
 		Manipulator(3, a, alpha, d, dTh) {};
@@ -162,6 +164,7 @@ public:
 
 	std::vector<Angle> getAngles();
 	Eigen::Matrix4d getH();
+	Error getError();
 };
 
 
@@ -169,7 +172,9 @@ class SixAxisStandardManipulator : public Manipulator
 {
 protected:
 	std::vector<double> l_; //linkLength
-	void inverseKinematic();
+	void inverseKinematics();
+	Eigen::Matrix3d getR3();
+	ThreeAxisRrrManipulator firstThreeAxis;
 public:
 	SixAxisStandardManipulator(ForwardKinematicsMethod method, std::vector<double> linkLength);
 };

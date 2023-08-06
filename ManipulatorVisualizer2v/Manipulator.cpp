@@ -211,7 +211,7 @@ void Manipulator::changeAngle(int i, double dAngle)
 {
 	if (i <= kAxis_) {
 		angles_[i-1] = Angle(angles_[i-1] + dAngle);
-		forwardKinematic();
+		forwardKinematics();
 	}
 }
 
@@ -227,7 +227,7 @@ void Manipulator::setAngles(std::vector<Angle> angles)
 			angles_[i] = angles[i];
 		}
 	}
-	forwardKinematic();
+	forwardKinematics();
 }
 
 void Manipulator::setAngles(std::vector<double> angles) 
@@ -242,22 +242,22 @@ void Manipulator::setAngles(std::vector<double> angles)
 			angles_[i] = Angle(angles[i]);
 		}
 	}
-	forwardKinematic();
+	forwardKinematics();
 }
 
 void Manipulator::changePosition(Point dCoords)
 {
 	coords_ = coords_ + dCoords;
-	inverseKinematic();
-	forwardKinematic();
+	inverseKinematics();
+	forwardKinematics();
 }
 
 void Manipulator::setPosition(Point coords, Eigen::Matrix3d R)
 {
 	coords_ = coords;
 	R_ = R;
-	inverseKinematic();
-	forwardKinematic();
+	inverseKinematics();
+	forwardKinematics();
 }
 
 void Manipulator::setPosition(Point coords)
@@ -269,11 +269,11 @@ void Manipulator::setPosition(Point coords)
 //													Forward Kinematic														|
 //==========================================================================================================================|
 
-void Manipulator::forwardKinematic()
+void Manipulator::forwardKinematics()
 {
 	if (forwardKinematicsMethod_ == DH) {
 		int start_time = clock(); // начальное время
-		forwardKinematicDH();
+		forwardKinematicsDH();
 		int end_time = clock(); // конечное время
 		int search_time_DH = (end_time - start_time); // искомое время
 		/*printf("DH_time: ");
@@ -281,7 +281,7 @@ void Manipulator::forwardKinematic()
 	}
 	else {
 		int start_time = clock(); // начальное время
-		forwardKinematicEXP();
+		forwardKinematicsEXP();
 		int end_time = clock(); // конечное время
 		int search_time_DH = (end_time - start_time); // искомое время
 		/*printf("EXP_time: ");
@@ -289,7 +289,7 @@ void Manipulator::forwardKinematic()
 	}
 }
 
-void Manipulator::forwardKinematicDH() 
+void Manipulator::forwardKinematicsDH() 
 {
 	Eigen::Vector4d Q { {0}, {0}, {0}, {1} };
 
@@ -389,7 +389,7 @@ Eigen::Matrix4d getApproxExpTwist(Eigen::Vector<double, 6> twist)
 	return expTwist;
 }
 //
-void Manipulator::forwardKinematicEXP()
+void Manipulator::forwardKinematicsEXP()
 {
 	Eigen::Vector4d Q{ {0}, {0}, {0}, {1} };
 
@@ -414,7 +414,7 @@ void Manipulator::countGeomJacobian()
 	}
 }
 
-void Manipulator::inverseKinematic()
+void Manipulator::inverseKinematics()
 {
 }
 
@@ -727,6 +727,14 @@ void Manipulator::printCoords()
 
 	glEnable(GL_DEPTH_TEST);
 }
+std::wstring Error_to_string(Error error)
+{
+	switch (error)
+	{
+	case OK:   return L"OK";
+	case OUT_OF_WORKSPACE:   return L"OUT_OF_SPACE";
+	}
+};
 void Manipulator::printFunctions()
 {
 	glRasterPos2f(0.3, 0.3);
@@ -749,7 +757,7 @@ void Manipulator::printFunctions()
 	drawLine(xStart + xShift1+xShift2, yStart,
 		xStart + xShift1+xShift2, yEnd);
 
-	std::wstring text = std::to_wstring(error_);
+	std::wstring text = Error_to_string(error_);
 	Font->Print(xStart + 2, yStart + yShift-2, text.c_str());
 	Font->Print(xStart + 2, yStart + 2*yShift - 2, L"starting position");
 	Font->Print(xStart + 2, yStart + 3 * yShift - 2, L"mouse control");
@@ -791,25 +799,28 @@ void Manipulator::changeByMouse(float x, float y) {
 			changeAngle(i, -angularSpeed);
 		}
 		else {
-			float linearSpeed = 1;
+			float linearSpeed = 3;
 			xShift = getXShift();
 			xStart = getXStartL();
 			yShift = getYShift();
 			yStart = getYStartL(kAxis_);
 			i = round((x - xStart + 0.5) / xShift);
 			int sign = 0;
-			if (yStart + yShift * (kJoints_ - 1) < y && y < yStart + yShift * (kJoints_)) sign = 1;
-			if (yStart + yShift * (kJoints_) < y && y < yStart + yShift * (kJoints_ + 1)) sign = -1;
+			if (yStart + yShift * (kJoints_) < y && y < yStart + yShift * (kJoints_+1)) sign = 1;
+			if (yStart + yShift * (kJoints_+1) < y && y < yStart + yShift * (kJoints_+2 )) sign = -1;
 			Point dCoords = Point(0, 0, 0);
 			if (i == 1) dCoords.x = sign * linearSpeed;
 			if (i == 2) dCoords.y = sign * linearSpeed;
 			if (i == 3) dCoords.z = sign * linearSpeed;
+			if (distance(dCoords, Point(0, 0, 0)) > 0) {
+				isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+			}
 			changePosition(dCoords);
 		}
 	}
 
-	if (getXStartR()<x<getXStartR()+getXShiftR1()) {
-		if (getYStartR() + getYShift()<y< getYStartR() + 2*getYShift()) {
+	if (getXStartR()<x && x<getXStartR()+getXShiftR1()) {
+		if (getYStartR() + getYShift()<y && y< getYStartR() + 2*getYShift()) {
 			for (int i = 0; i < kAxis_; i++) {
 				angles_[i] = Angle(0);
 			}
@@ -828,7 +839,9 @@ void Manipulator::stopChangeByMouse() {
 //													THREE AXIS RRR MANIPULATOR												|
 //																															|
 //==========================================================================================================================|
-
+ThreeAxisRrrManipulator::ThreeAxisRrrManipulator()
+{
+}
 ThreeAxisRrrManipulator::ThreeAxisRrrManipulator(std::vector<double> l)
 {
 	forwardKinematicsMethod_ = DH;
@@ -859,7 +872,7 @@ bool firstAngleCloserToThird(Angle first, Angle second, Angle third)
 	return abs((third - first).get()) < abs((third - second).get());
 }
 
-void ThreeAxisRrrManipulator::inverseKinematic()
+void ThreeAxisRrrManipulator::inverseKinematics()
 {
 	double r1 = sqrt(sq(coords_.x) + sq(coords_.y));
 	double r2 = coords_.z - d_[0];
@@ -928,6 +941,10 @@ Eigen::Matrix4d ThreeAxisRrrManipulator::getH() {
 	return H_[kAxis_];
 }
 
+Error ThreeAxisRrrManipulator::getError() {
+	return error_;
+}
+
 //==========================================================================================================================|
 //																															|
 //												SIX AXIS STANDARD MANIPULATOR												|
@@ -985,6 +1002,7 @@ SixAxisStandardManipulator::SixAxisStandardManipulator(ForwardKinematicsMethod m
 		if (distance(joints_[i], joints_[i + 1]) > 0.0001) kJoints_ += 1;
 	}
 	error_ = OK;
+	firstThreeAxis= ThreeAxisRrrManipulator(l_);
 }
 
 std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R) {
@@ -1002,28 +1020,43 @@ std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R) {
 	}
 	else {
 		int sign = 1; //1 or -1
-		y2 = atan2 (sign * sqrt(1 - sq(R(2,2))),   R(2,2));
-		z1 = atan2 (sign * R(1,2),                 sign * R(0,2));
-		z3 = atan2 (sign * R(2,1),                -sign * R(2,0)); 
+		y2 = Angle(atan2 (sign * sqrt(1 - sq(R(2,2))),   R(2,2)));
+		z1 = Angle(atan2 (sign * R(1,2), sign * R(0,2)));
+		z3 = Angle(atan2 (sign * R(2,1), -sign * R(2,0))); 
 	}
 	std::array<Angle, 3> angles = { z1, y2, z3 };
 	return angles;
-
+}
+Eigen::Matrix3d SixAxisStandardManipulator::getR3() {
+	for (int i = 0; i < 3; i++) {
+		double th = angles_[i].get();
+		//transformation matrix from i-1 coordinate system to i coordinate system
+		Eigen::Matrix4d Hi{ {cos(th),  -sin(th) * cos(alpha_[i]),  sin(th) * sin(alpha_[i]),   a_[i] * cos(th)},
+							  {sin(th),  cos(th) * cos(alpha_[i]),   -cos(th) * sin(alpha_[i]),  a_[i] * sin(th)},
+							  {0,        sin(alpha_[i]),             cos(alpha_[i]),             d_[i]          },
+							  {0,        0,                          0,                          1              } };
+		H_[i + 1] = H_[i] * Hi;  //transformation matrix from 0 coordinate system to i coordinate system 
+	}
+	return getR(H_[3]);
 }
 
-void SixAxisStandardManipulator::inverseKinematic() 
+
+
+void SixAxisStandardManipulator::inverseKinematics() 
 {
 	Eigen::Vector3d zv (0, 0, 1);
 	Eigen::Vector3d p46 = d_[5] * getR(H_[kAxis_]) * zv;
 	Point p04 = coords_ - Point(p46);
 
-	ThreeAxisRrrManipulator firstThreeAxis = ThreeAxisRrrManipulator(l_);
 	firstThreeAxis.setPosition(p04);
 	std::vector<Angle> angles3 = firstThreeAxis.getAngles();
-	angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2];
-	Eigen::Matrix3d R3 = getR(firstThreeAxis.getH());
+	error_ = firstThreeAxis.getError();
+	angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2]+PI/2;
+	Eigen::Matrix3d R3 = getR3();
 	Eigen::Matrix3d R36 = R3.transpose()*getR(H_[kAxis_]);
 	std::array<Angle, 3> angles36 = findEulerAngles(R36);
 	angles_[3] = angles36[0]; angles_[4] = angles36[1]; angles_[5] = angles36[2];
+	//angles_[3] = 0; angles_[4] = 0; angles_[5]=0;
+	angles_[2] = angles3[2];
 	setAngles(angles_);
 }
