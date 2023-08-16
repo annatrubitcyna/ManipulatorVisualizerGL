@@ -28,9 +28,9 @@ int getWindowHeight()
 	return 700;
 }
 
-int getScreneToCentreDistance()
+int getScreneToCentreDistance() //how close is camera to center of the scene
 {
-	return 700;
+	return 700; 
 }
 
 //==========================================================================================================================|
@@ -481,8 +481,9 @@ int main(int argc, char** argv) {
 	glutInit(&argc, argv);  //initialize the GLUT library
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); //parameters rgb- colors (0-1), double need to animation, depth-&
 	glutInitWindowSize(getWindowWidth(), getWindowHeight());
-	glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - getWindowWidth()) / 2,     //center
-		(glutGet(GLUT_SCREEN_HEIGHT) - getWindowHeight()) / 2); //left top corner offset
+	//glutInitWindowPosition((glutGet(GLUT_SCREEN_WIDTH) - getWindowWidth()) / 2,     //center
+	//	(glutGet(GLUT_SCREEN_HEIGHT) - getWindowHeight()) / 2); //left top corner offset
+	glutInitWindowPosition(0, 0);
 	glutCreateWindow("Manipulator Visualizer");
 	glutDisplayFunc(display); //setup
 	glutReshapeFunc(reshape); //changing window size

@@ -209,7 +209,7 @@ Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTw
 
 void Manipulator::changeAngle(int i, double dAngle) 
 {
-	if (i <= kAxis_) {
+	if (i <= kAxis_ && i>0) {
 		angles_[i-1] = Angle(angles_[i-1] + dAngle);
 		forwardKinematics();
 	}
@@ -708,6 +708,7 @@ void Manipulator::printCoords()
 	Font->Print(xStart + xShift * 3 - 0.5+4, y, L"\u2193");
 
 	//frame around grip coordinates
+	glColor3f(1.0f, 0.0f, 0.0f); //change color to red
 	glBegin(GL_LINES);
 	glVertex2f(xStart-0.5, yStart+yShift*kRows);
 	glVertex2f(xStart-0.5, yStart + yShift * (kRows + 1));
@@ -788,7 +789,8 @@ void Manipulator::changeByMouse(float x, float y) {
 	float xStart = getXStartT(kAxis_);
 	float yShift = getYShift();
 	float yStart = getYStartT();
-	int i = round((x - xStart - 0.5) / xShift );
+	//x = xStart + xShift * (i+1)+0.5-2;
+	int i = floor((x - xStart - 0.5 + 2) / xShift );
 	if (0 < i < kAxis_) {
 		if (yStart + yShift * 3 < y && y < yStart + yShift * 4) {
 			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
@@ -804,18 +806,19 @@ void Manipulator::changeByMouse(float x, float y) {
 			xStart = getXStartL();
 			yShift = getYShift();
 			yStart = getYStartL(kAxis_);
-			i = round((x - xStart + 0.5) / xShift);
+			//xStart + i * xShift - xShift / 4
+			i = floor((x - xStart +xShift/4) / xShift);
 			int sign = 0;
-			if (yStart + yShift * (kJoints_) < y && y < yStart + yShift * (kJoints_+1)) sign = 1;
-			if (yStart + yShift * (kJoints_+1) < y && y < yStart + yShift * (kJoints_+2 )) sign = -1;
+			if (yStart + yShift * (kJoints_+1) < y && y < yStart + yShift * (kJoints_+2)) sign = 1;
+			if (yStart + yShift * (kJoints_+2) < y && y < yStart + yShift * (kJoints_+3 )) sign = -1;
 			Point dCoords = Point(0, 0, 0);
 			if (i == 1) dCoords.x = sign * linearSpeed;
 			if (i == 2) dCoords.y = sign * linearSpeed;
 			if (i == 3) dCoords.z = sign * linearSpeed;
-			if (distance(dCoords, Point(0, 0, 0)) > 0) {
+			if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
 				isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+				changePosition(dCoords);
 			}
-			changePosition(dCoords);
 		}
 	}
 
