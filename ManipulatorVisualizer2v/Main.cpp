@@ -310,7 +310,31 @@ void mouseButton(int button, int state, int x, int y)
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
 		float xPr = float(x) / glutGet(GLUT_WINDOW_WIDTH) * 200; //change to 200 %
 		float yPr = float(y) / glutGet(GLUT_WINDOW_HEIGHT) * 200;
-		manipulator.changeByMouse(xPr, yPr);
+		int i=manipulator.changeByMouse(xPr, yPr);
+		if(i!=0){
+			float cameraX0 = getScreneToCentreDistance();
+			switch (i) {
+				//RIGHT,FRONT, LEFT,BACK,TOP,BOTTOM
+				case 1:
+					camera.setPosition(cameraX0, 0, 0, 0, 0, 90);
+					break;
+				case 2:
+					camera.setPosition(cameraX0, 0, 0, 0, 0, 0);
+					break;
+				case 3:
+					camera.setPosition(cameraX0, 0, 0, 0, 0, -90);
+					break;
+				case 4:
+					camera.setPosition(cameraX0, 0, 0, 0, 0, 180);
+					break;
+				case 5:
+					camera.setPosition(cameraX0, 0, 0, 0, 90, 0);
+					break;
+				case 6:
+					camera.setPosition(cameraX0, 0, 0, 0, -90, 0);
+					break;
+			}
+		}
 	}
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
 		manipulator.stopChangeByMouse();

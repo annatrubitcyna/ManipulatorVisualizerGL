@@ -118,6 +118,8 @@ protected:
 	void printCoords();
 	void printOrientation();
 	void printFunctions();
+	void drawOrientationCubes();
+	bool isCubePressed;
 	std::vector<int> isChangedByMouse_; //1- yes or not, 2,3- x y mouse coords 
 
 	void goByGCODE(std::string fileName);
@@ -149,7 +151,7 @@ public:
 	void printInfo();
 	void printSimpleInfo();
 
-	void changeByMouse(float x, float y);
+	int changeByMouse(float x, float y);
 	void stopChangeByMouse();
 };
 

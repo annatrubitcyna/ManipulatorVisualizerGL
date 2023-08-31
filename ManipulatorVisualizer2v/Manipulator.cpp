@@ -169,6 +169,7 @@ void Manipulator::initializeVectorsAsNull() {
 		H_.push_back(Eigen::Matrix4d::Zero());
 		if (i < 3)	isChangedByMouse_.push_back(0);
 	}
+	isCubePressed = false;
 }
 
 Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh)
@@ -624,7 +625,9 @@ float getXShiftR1() { //2 column
 float getXShiftR2() { //1 column
 	return 5; 
 }
-
+//==========================================================================================================================|
+//													_Angles Printing														|
+//==========================================================================================================================|
 void Manipulator::printAngles() 
 {	
 	glRasterPos2f(0.3, 0.3);
@@ -688,6 +691,9 @@ void Manipulator::printAngles()
 	glEnable(GL_DEPTH_TEST);
 }
 
+//==========================================================================================================================|
+//													_Coords Printing														|
+//==========================================================================================================================|
 void Manipulator::printCoords() 
 {
 	glRasterPos2f(0.3, 0.3);
@@ -765,6 +771,9 @@ void Manipulator::printCoords()
 
 	glEnable(GL_DEPTH_TEST);
 }
+//==========================================================================================================================|
+//													_Orientation Printing													|
+//==========================================================================================================================|
 void Manipulator::printOrientation() {
 	glRasterPos2f(0.3, 0.3);
 	glDisable(GL_DEPTH_TEST);
@@ -841,6 +850,9 @@ void Manipulator::printOrientation() {
 		FontM->Print(x+3, yStart + yShift * (kARows + kERows + 4 + 3)-2, L"\u21BA");
 	}
 }
+//==========================================================================================================================|
+//													_Function Printing													|
+//==========================================================================================================================|
 std::wstring Error_to_string(Error error)
 {
 	switch (error)
@@ -891,27 +903,184 @@ void Manipulator::printFunctions()
 	// * (*, x), (->, <-), (|, |)
 
 }
+
+//==========================================================================================================================|
+//															_Cubes															|
+//==========================================================================================================================|
+enum CubeOr {
+	NON,
+	RIGHT,
+	FRONT, 
+	LEFT,
+	BACK,
+	TOP,
+	BOTTOM
+};
+void drawCube(float ltCornerX, float ltCornerY, float a, float shift, int i) {
+	//glColor3f(1.0f, 0.0f, 1.0f);     // Magenta
+	//glVertex3f(1.0f, 1.0f, -1.0f);
+	//glVertex3f(1.0f, 1.0f, 1.0f);
+	//glVertex3f(1.0f, -1.0f, 1.0f);
+	//glVertex3f(1.0f, -1.0f, -1.0f);
+	//glEnd();  // End of drawing color-cube
+
+	float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
+
+	//back
+	drawLine(ltCornerX, ltCornerY, 
+			 ltCornerX + ax, ltCornerY); //-
+	drawLine(ltCornerX, ltCornerY, 
+			 ltCornerX, ltCornerY + a); //|
+	drawLine(ltCornerX + ax, ltCornerY, 
+			 ltCornerX + ax, ltCornerY + a); // |
+	drawLine(ltCornerX, ltCornerY + a, 
+			 ltCornerX + ax, ltCornerY + a); //_
+
+	//front
+	float lbCornerX = ltCornerX - shift;
+	float lbCornerY = ltCornerY + shift;
+	drawLine(lbCornerX, lbCornerY, 
+			lbCornerX + ax, lbCornerY); //-
+	drawLine(lbCornerX, lbCornerY, 
+			 lbCornerX, lbCornerY + a); //|
+	drawLine(lbCornerX + ax, lbCornerY, 
+			 lbCornerX + ax, lbCornerY + a); // |
+	drawLine(lbCornerX, lbCornerY + a, 
+			 lbCornerX + ax, lbCornerY + a); //_
+
+	//left
+	drawLine(ltCornerX, ltCornerY, 
+			 ltCornerX - shift, ltCornerY + shift); //-
+	drawLine(ltCornerX, ltCornerY + a, 
+			 ltCornerX - shift, ltCornerY + a + shift); //_
+
+	//right
+	drawLine(ltCornerX+ax, ltCornerY, 
+			 ltCornerX + ax - shift, ltCornerY + shift); //-
+	drawLine(ltCornerX+ax, ltCornerY + a,
+			 ltCornerX + ax - shift, ltCornerY + a + shift); //_
+
+	glColor3f(0.2, 0.2, 0.2);
+	if (i == 1) { //left
+		glBegin(GL_QUAD_STRIP);
+		glVertex2f(ltCornerX, ltCornerY);
+		glVertex2f(ltCornerX - shift,ltCornerY + shift); //-
+		glVertex2f(ltCornerX, ltCornerY + a);
+		glVertex2f(ltCornerX - shift, ltCornerY + a + shift);
+		glEnd();
+	}
+	if (i == 2) { //front
+		glBegin(GL_QUAD_STRIP);
+		glVertex2f(lbCornerX, lbCornerY);
+		glVertex2f(lbCornerX, lbCornerY + a); //|
+		glVertex2f(lbCornerX + ax, lbCornerY);
+		glVertex2f(lbCornerX + ax, lbCornerY + a); // |
+		glEnd();
+	}
+	if (i == 3) { //right
+		glBegin(GL_QUAD_STRIP);
+		glVertex2f(ltCornerX + ax, ltCornerY);
+		glVertex2f(ltCornerX + ax - shift, ltCornerY + shift); //-
+		glVertex2f(ltCornerX + ax, ltCornerY + a);
+		glVertex2f(ltCornerX + ax - shift, ltCornerY + a + shift);
+		glEnd();
+	}
+	if (i == 4) { //back
+		glBegin(GL_QUAD_STRIP);
+		glVertex2f(ltCornerX, ltCornerY);
+		glVertex2f(ltCornerX, ltCornerY + a); //|
+		glVertex2f(ltCornerX + ax, ltCornerY);
+		glVertex2f(ltCornerX + ax, ltCornerY + a); // |
+		glEnd();
+	}
+	if (i == 5) { //top
+		glBegin(GL_QUAD_STRIP);
+		glVertex2f(ltCornerX, ltCornerY);
+		glVertex2f(ltCornerX - shift, ltCornerY + shift);
+		glVertex2f(ltCornerX+ax, ltCornerY);
+		glVertex2f(ltCornerX+ax - shift, ltCornerY + shift);
+		glEnd();
+	}
+	if (i == 6) { //bottom
+		glBegin(GL_QUAD_STRIP);
+		glVertex2f(ltCornerX, ltCornerY + a);
+		glVertex2f(ltCornerX - shift, ltCornerY + a + shift);
+		glVertex2f(ltCornerX + ax, ltCornerY + a);
+		glVertex2f(ltCornerX + ax - shift, ltCornerY + a + shift);
+		glEnd();
+	}
+
+}
+void drawRect(float x, float y, float w, float h) {
+	glBegin(GL_QUADS);
+	glVertex3f(x, y, 0);
+	glVertex3f(x + w, y, 0);
+	glVertex3f(x + w, y + h, 0);
+	glVertex3f(x, y + h, 0);
+	glEnd();
+}
+void drawCubesPanel() {
+	glColor3f(0.8, 0.8, 1);
+	//Panel coordinates
+	float xStart = 13;
+	float yStart = 150;
+	float width = 35;
+	float height = 40;
+	drawRect(xStart, yStart, width, height);
+	glColor3f(0.4, 0.4, 0.4);
+	float a = 7;
+	float shift = 3;
+	float between = 2;
+	float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
+	for (int i = 0; i < 4; i++) {
+		drawCube(xStart + (ax + shift + between)*i + 5, yStart + height / 2 - (a + shift) / 2, a, shift, i+1);
+	}
+	drawCube(xStart + (ax + shift + between)  + 5, yStart + height / 2 - (a + shift) / 2 - (a + shift + between), a, shift, TOP);
+	drawCube(xStart + (ax + shift + between) + 5, yStart + height / 2 - (a + shift) / 2 + (a + shift + between), a, shift, BOTTOM);
+
+	
+
+}
+void Manipulator::drawOrientationCubes() {
+	glPushMatrix(); //to print more than one text
+	//glLoadIdentity();
+	glDisable(GL_TEXTURE_2D);
+	// move to coordinates
+	glTranslatef(0, 0, -1);
+	glRasterPos2f(-1, 0.5);
+	int xStart = 2;
+	int yStart = 182;
+	int a = 10;
+	int shift = 3;
+	drawCube(xStart+shift,yStart,a,shift, 0);
+	glEnable(GL_TEXTURE_2D);
+	glPopMatrix();
+	if (isCubePressed) {
+		drawCubesPanel();
+	}
+}
 void Manipulator::printInfo() {
 	printAngles();
 	printCoords();
 	printOrientation();
 	printFunctions();
+	drawOrientationCubes();
 }
 //==========================================================================================================================|
 //																															|
 //														 _MOUSE 															|
 //																															|
 //==========================================================================================================================|
-void Manipulator::changeByMouse(float x, float y) {
+int Manipulator::changeByMouse(float x, float y) {
 	//angles
-	float angularSpeed= toRadians(1);
+	float angularSpeed = toRadians(1);
 	float xShift = getXShift();
 	float xStart = getXStartT(kAxis_);
 	float yShift = getYShift();
 	float yStart = getYStartT();
 	//x = xStart + xShift * (i+1)+0.5-2;
-	int i = floor((x - xStart - 0.5 + 2) / xShift );
-	if (0 < i && i< kAxis_+1) { //angles
+	int i = floor((x - xStart - 0.5 + 2) / xShift);
+	if (0 < i && i < kAxis_ + 1) { //angles
 		if (yStart + yShift * 3 < y && y < yStart + yShift * 4) {
 			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
 			changeAngle(i, angularSpeed);
@@ -921,65 +1090,101 @@ void Manipulator::changeByMouse(float x, float y) {
 			changeAngle(i, -angularSpeed);
 		}
 	}
-	else { //coords
-		float linearSpeed = 3;
-		xShift = getXShift();
-		xStart = getXStartL();
-		yShift = getYShift();
-		yStart = getYStartL(kAxis_);
-		//xStart + i * xShift - xShift / 4
-		i = floor((x - xStart + xShift / 4) / xShift);
-		int sign = 0;
-		if (yStart + yShift * (kJoints_ + 1) < y && y < yStart + yShift * (kJoints_ + 2)) sign = 1;
-		if (yStart + yShift * (kJoints_ + 2) < y && y < yStart + yShift * (kJoints_ + 3)) sign = -1;
-		Point dCoords = Point(0, 0, 0);
-		if (i == 1) dCoords.x = sign * linearSpeed;
-		if (i == 2) dCoords.y = sign * linearSpeed;
-		if (i == 3) dCoords.z = sign * linearSpeed;
-		if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
-			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-			changePosition(dCoords);
-		}
-
-		//orientation
-		xShift = getXShift();
-		xStart = getXStartL();
-		yShift = getYShift();
-		yStart = getYStartT();
-		int kRows = 11;
-		float angularOrientSpeed = toRadians(1);
-		i = floor((x - xStart) / xShift)+1;
-		if (0 < i && i< 4) {
-			if (yStart + (kRows - 2) * yShift < y && y < yStart + (kRows - 1) * yShift) {
-				changeOrientation(i, angularOrientSpeed);
-				isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-			}
-			if (yStart + (kRows - 1) * yShift < y && y < yStart + (kRows)*yShift) {
-				changeOrientation(i, -angularOrientSpeed);
-				isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-			}
-		}
-
+	//coords
+	float linearSpeed = 3;
+	xShift = getXShift();
+	xStart = getXStartL();
+	yShift = getYShift();
+	yStart = getYStartL(kAxis_);
+	//xStart + i * xShift - xShift / 4
+	i = floor((x - xStart + xShift / 4) / xShift);
+	int sign = 0;
+	if (yStart + yShift * (kJoints_ + 1) < y && y < yStart + yShift * (kJoints_ + 2)) sign = 1;
+	if (yStart + yShift * (kJoints_ + 2) < y && y < yStart + yShift * (kJoints_ + 3)) sign = -1;
+	Point dCoords = Point(0, 0, 0);
+	if (i == 1) dCoords.x = sign * linearSpeed;
+	if (i == 2) dCoords.y = sign * linearSpeed;
+	if (i == 3) dCoords.z = sign * linearSpeed;
+	if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
+		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+		changePosition(dCoords);
 	}
-	/*float x = xStart + xShift * j + xShift / 4 - 0.5;
-	y = yStart + yShift * (kARows + kERows + i + 3) - 2;*/
+
+	//orientation
+	xShift = getXShift();
+	xStart = getXStartL();
+	yShift = getYShift();
+	yStart = getYStartT();
+	int kRows = 11;
+	float angularOrientSpeed = toRadians(1);
+	i = floor((x - xStart) / xShift) + 1;
+	if (0 < i && i < 4) {
+		if (yStart + (kRows - 2) * yShift < y && y < yStart + (kRows - 1) * yShift) {
+			changeOrientation(i, angularOrientSpeed);
+			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+		}
+		if (yStart + (kRows - 1) * yShift < y && y < yStart + (kRows)*yShift) {
+			changeOrientation(i, -angularOrientSpeed);
+			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+		}
+	}
 
 	//functions
-	if (getXStartR()<x && x<getXStartR()+getXShiftR1()) {
-		if (getYStartR() + getYShift()<y && y< getYStartR() + 2*getYShift()) {
+	if (getXStartR() < x && x < getXStartR() + getXShiftR1()) {
+		if (getYStartR() + getYShift() < y && y < getYStartR() + 2 * getYShift()) {
 			for (int i = 0; i < kAxis_; i++) { //start position
 				angles_[i] = Angle(0);
 			}
 			setAngles(angles_);
 		}
-		if (getYStartR() + 6*getYShift() < y && y < getYStartR() + 7 * getYShift()) { // go by GCODE
+		if (getYStartR() + 6 * getYShift() < y && y < getYStartR() + 7 * getYShift()) { // go by GCODE
 			goByGCODE("AbsoluteCube1.gcode");
 		}
 	}
+	//cubePanel
+	xStart = 13;
+	yStart = 150;
+	float width = 35;
+	float height = 40;
+	float a = 7;
+	float shift = 3;
+	float between = 2;
+	float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
+	if (isCubePressed) {
+		i = 0;
+		if (yStart + height / 2 - (a + shift) / 2 < y && y < yStart + height / 2 - (a + shift) / 2 + a + shift) {
+			i = floor((x - (xStart - shift+5)) / (ax + shift + between)) + 1;
+		}
+		if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 - (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 - (a + shift - between) + shift + a) {
+			i = 5;
+		}
+		if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 + (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 + (a + shift - between) + shift + a) {
+			i = 6;
+		}
+		if (i != 0) {
+			return i;
+		}
+	}
+
+	//cube
+	xStart = 2;
+	yStart = 182;
+	a = 10;
+	shift = 3;
+	if (xStart < x && x < xStart + a + shift && yStart < y && y < yStart + yShift) {
+		isCubePressed = !isCubePressed;
+	}
+	return 0;
 }
 void Manipulator::stopChangeByMouse() {
 	isChangedByMouse_[0] = 0;
 }
+
+//==========================================================================================================================|
+//																															|
+//														_VIEW 														    	|
+//																															|
+//==========================================================================================================================|
 
 //==========================================================================================================================|
 //																															|
@@ -1241,12 +1446,12 @@ SixAxisStandardManipulator::SixAxisStandardManipulator(ForwardKinematicsMethod m
 std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R) {
 	//Angles around z, y', z''
 	Angle z3; Angle y2; Angle z1;
-	if (R(2,2) == 1) {
+	if (R(2,2)==1) {
 		y2 = Angle(0);
 		z3 = Angle(0); //choose any t6
 		z1 = Angle(atan2(R(1,0), R(0,0)) - z3.get());
 	}
-	else if (R(2,2) == -1) {
+	else if (R(2,2)==-1) {
 		y2 = Angle(PI);
 		z3 = Angle(0); //выбираем t6 любым
 		z1 = Angle(atan2(-R(0,1), -R(0,0) + z3.get()));
@@ -1284,12 +1489,14 @@ void SixAxisStandardManipulator::inverseKinematics()
 	firstThreeAxis.setPosition(p04);
 	std::vector<Angle> angles3 = firstThreeAxis.getAngles();
 	error_ = firstThreeAxis.getError();
-	angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2]+PI/2;
-	Eigen::Matrix3d R3 = getR3();
-	Eigen::Matrix3d R36 = R3.transpose()*R_;
-	std::array<Angle, 3> angles36 = findEulerAngles(R36);
-	angles_[3] = angles36[0]; angles_[4] = angles36[1]; angles_[5] = angles36[2];
-	//angles_[3] = 0; angles_[4] = 0; angles_[5]=0;
-	angles_[2] = angles3[2];
-	setAngles(angles_);
+	if (error_ != OUT_OF_WORKSPACE) {
+		angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2] + PI / 2;
+		Eigen::Matrix3d R3 = getR3();
+		Eigen::Matrix3d R36 = R3.transpose() * R_;
+		std::array<Angle, 3> angles36 = findEulerAngles(R36);
+		angles_[3] = angles36[0]; angles_[4] = angles36[1]; angles_[5] = angles36[2];
+		//angles_[3] = 0; angles_[4] = 0; angles_[5]=0;
+		angles_[2] = angles3[2];
+		setAngles(angles_);
+	}
 }
