@@ -13,8 +13,10 @@
 #include <fstream>
 
 const char* ttf = "C:/Windows/Fonts/arial.ttf";
+const char* ttfM = "C:/Windows/Fonts/cambria.ttc";
 const char* ttf2 = "C:/Users/Ann/Downloads/FTGL/arial.ttf";
 CFont* Font = new CFont(ttf, 24, 32);
+CFont* FontM = new CFont(ttfM, 24, 32);
 
 std::string sep = "\n----------------------------------------\n";
 Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
@@ -48,8 +50,8 @@ Eigen::Matrix3d getR(Eigen::Matrix4d H)
 
 GLfloat* getColor(COLOR i)
 {
-	//Red, blue, green, yellow, green-blue, pink, orange,violet, white, green-yellow
-	GLfloat colors[10][3] = { {1.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 1.0, 0.0},{1.0, 1.0, 0.0}, {0.0, 1.0, 1.0},
+	//Red, green, blue, yellow, green-blue, pink, orange,violet, white, green-yellow
+	GLfloat colors[10][3] = { {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}, {1.0, 1.0, 0.0}, {0.0, 1.0, 1.0},
 									{1.0, 0.0, 1.0}, {1.0, 0.7, 0.0}, {0.7, 1.0, 0.0}, {1.0, 1.0, 1.0}, {0.7, 0.0, 1.0} };
 	return colors[i];
 }
@@ -62,7 +64,7 @@ GLfloat* getColor(COLOR i)
 
 //==========================================================================================================================|
 //																															|
-//														POINTS																|
+//														_POINTS																|
 //																															|
 //==========================================================================================================================|
 
@@ -107,7 +109,7 @@ Eigen::Vector3d Point::toVector()
 
 //==========================================================================================================================|
 //																															|
-//														ANGLE																|
+//														_ANGLE																|
 //																															|
 //==========================================================================================================================|
 
@@ -151,7 +153,7 @@ Angle operator-(Angle a1, Angle a2)
 
 //==========================================================================================================================|
 //																															|
-//														MANIPULATOR															|
+//													_MANIPULATOR															|
 //																															|
 //==========================================================================================================================|
 
@@ -205,7 +207,7 @@ Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTw
 
 //==========================================================================================================================|
 //																															|
-//													TRANSFER FUNCTIONS														|
+//													_TRANSFER FUNCTIONS														|
 //																															|
 //==========================================================================================================================|
 
@@ -267,8 +269,49 @@ void Manipulator::setPosition(Point coords)
 	setPosition(coords, Eigen::Matrix3d::Identity());
 }
 
+Eigen::Matrix3d getStandardRotMatrixX(Angle angle) {
+	float an = angle.get();
+	Eigen::Matrix3d R { {1, 0, 0},
+						{0, cos(an), -sin(an)},
+						{0, sin(an), cos(an)} };
+	return R;
+}
+Eigen::Matrix3d getStandardRotMatrixY(Angle angle) {
+	float an = angle.get();
+	Eigen::Matrix3d R { {cos(an), 0, sin(an)},
+						{0, 1, 0},
+						{-sin(an), 0, cos(an)} };
+	return R;
+}
+Eigen::Matrix3d getStandardRotMatrixZ(Angle angle) {
+	float an = angle.get();
+	Eigen::Matrix3d R { {cos(an),-sin(an),0},
+						{sin(an), cos(an), 0},
+						{0, 0, 1} };
+	return R;
+}
+
+void Manipulator::changeOrientation(int axis, float dAngle) {
+	Eigen::Matrix3d R=R_;
+	if (axis == 1) { //x-axis
+		R = R_ * getStandardRotMatrixX(Angle(dAngle));
+	}
+	else if (axis == 2) { //y-axis
+		R= R_ * getStandardRotMatrixY(Angle(dAngle));
+	}
+	else if (axis == 3) { //z-axis
+		R = R_ * getStandardRotMatrixZ(Angle(dAngle));
+	}
+	setOrientation(R);
+}
+
+
+void Manipulator::setOrientation(Eigen::Matrix3d R) {
+	setPosition(coords_, R);
+}
+
 //==========================================================================================================================|
-//													Forward Kinematic														|
+//													_Forward Kinematic														|
 //==========================================================================================================================|
 
 void Manipulator::forwardKinematics()
@@ -289,6 +332,7 @@ void Manipulator::forwardKinematics()
 		/*printf("EXP_time: ");
 		printf("%i\n", search_time_DH);*/
 	}
+	EulerAngles_ = findEulerAngles(R_);
 }
 
 void Manipulator::forwardKinematicsDH() 
@@ -307,7 +351,7 @@ void Manipulator::forwardKinematicsDH()
 		Eigen::Vector4d joint=H_[i+1]*Q;
 		joints_[i+1] = Point(joint);
 	}
-	R_ = getR(H_[kAxis_-1]);
+	R_ = getR(H_[kAxis_]);
 	coords_ = joints_[kAxis_];
 }
 
@@ -325,7 +369,7 @@ void Manipulator::countJacobian()
 }
 
 //==========================================================================================================================|
-//													Forward Kinematic EXP													|
+//													_Forward Kinematic EXP													|
 //==========================================================================================================================|
 
 Eigen::Matrix3d skewSymmetricMatrixFromVector(Eigen::Vector3d x)
@@ -403,7 +447,7 @@ void Manipulator::forwardKinematicsEXP()
 		Eigen::Vector4d joint = H_[i + 1] * Q;
 		joints_[i + 1] = Point(joint);
 	}
-	R_ = getR(H_[kAxis_ - 1]);
+	R_ = getR(H_[kAxis_]);
 	coords_ = joints_[kAxis_];
 }
 
@@ -422,7 +466,7 @@ void Manipulator::inverseKinematics()
 
 //==========================================================================================================================|
 //																															|
-//														DRAWING																|
+//													_DRAWING																|
 //																															|
 //==========================================================================================================================|
 
@@ -538,7 +582,7 @@ void Manipulator::drawBaseCoordSystem() {
 
 //==========================================================================================================================|
 //																															|
-//														PRINTING															|
+//														_PRINTING															|
 //																															|
 //==========================================================================================================================|
 
@@ -564,7 +608,7 @@ float getXStartL()
 }
 float getYStartL(int kAxis)
 {
-	return (200 - getYShift() * (kAxis + 1)) / 2;
+	return (200 - getYShift() * (kAxis + 1)) / 2 +20;
 }
 float getXStartR()
 {
@@ -593,13 +637,29 @@ void Manipulator::printAngles()
 	float yShift = getYShift();
 	float yStart = getYStartT();
 	int kLines = 5;
+
 	//horizontal lines
+	glColor3f(0.493, 0.493, 0.833);
 	for (int i = 0; i < kLines+1; i++) {
-		glBegin(GL_LINES);
-		glVertex2f(xStart, yStart+i*yShift );
-		glVertex2f(xStart + xShift * (kAxis_+1) -2, yStart + i * yShift);
-		glEnd();
+		drawLine(xStart, yStart+i*yShift,
+			     xStart + xShift * (kAxis_+1) -2, yStart + i * yShift);
 	}
+	//vertical lines
+	drawLine(xStart, yStart, xStart,
+		yStart + yShift * kLines);
+	for (int i = 1; i < kAxis_+1; i++) {
+		float x = xStart + xShift * i + 0.5;
+		//vertical lines
+		drawLine(x - 2, yStart,
+			x - 2, yStart + yShift * kLines);
+	}
+	// last vertical line
+	float x = xStart + xShift * (kAxis_ + 1) - 2;
+	drawLine(x, yStart,
+		     x, yStart + yShift * kLines);
+
+	glColor3f(1, 1, 1);
+
 
 	Font->Print(xStart+ xShift/4, yShift, L"¹");
 	Font->Print(xStart + xShift / 4, yShift*2, L"deg");
@@ -607,18 +667,10 @@ void Manipulator::printAngles()
 	Font->Print(xStart + xShift / 4, yShift * 4, L"more");
 	Font->Print(xStart + xShift / 4, yShift * 5, L"less");
 
-	//first vertical line
-	glBegin(GL_LINES);
-	glVertex2f(xStart, yStart);
-	glVertex2f(xStart, yStart+yShift * kLines);
-	glEnd();
+	
 	for (int i = 0; i < kAxis_; i++) {
 		float x = xStart + xShift * (i+1)+0.5;
-		//vertical lines
-		glBegin(GL_LINES);
-		glVertex2f(x-2, yStart);
-		glVertex2f(x-2, yStart + yShift * kLines);
-		glEnd();
+
 
 		//angle number
 		Font->Print(x+4, yShift, std::to_wstring(i+1).c_str());
@@ -632,12 +684,6 @@ void Manipulator::printAngles()
 		Font->Print(x+4, yShift * 4, L"\u2191");
 		Font->Print(x+4, yShift * 5, L"\u2193");
 	}
-	// last vertical line
-	float x = xStart + xShift * (kAxis_+1) -2;
-	glBegin(GL_LINES);
-	glVertex2f(x, yStart);
-	glVertex2f(x, yStart + yShift * kLines);
-	glEnd();
 
 	glEnable(GL_DEPTH_TEST);
 }
@@ -656,17 +702,20 @@ void Manipulator::printCoords()
 	int kColumns = 5;
 	int kRows = kJoints_;
 
+	glColor3f(0.493, 0.493, 0.833);
 	//vertical lines
-	glBegin(GL_LINES);
-	glVertex2f(xStart, yStart);
-	glVertex2f(xStart, yStart + yShift * (kRows + 3));
-	glEnd();
+	drawLine(xStart, yStart, 
+			 xStart, yStart + yShift * (kRows + 3));
 	for (int i = 1; i < kColumns; i++) {
-		glBegin(GL_LINES);
-		glVertex2f(xStart + i * xShift - xShift/4, yStart);
-		glVertex2f(xStart + i * xShift - xShift / 4, yStart + yShift * (kRows + 3) );
-		glEnd();
+		drawLine(xStart + i * xShift - xShift/4, yStart, 
+				 xStart + i * xShift - xShift / 4, yStart + yShift * (kRows + 3) );
 	}
+	//horizontal lines
+	for (int i = 0; i < kRows + 4; i++) {
+		drawLine(xStart, yStart + i * yShift,
+			xStart + xShift * (kColumns - 1) - xShift / 4, yStart + i * yShift);
+	}
+	glColor3f(1, 1, 1);
 
 	float y = yStart + yShift - 2;
 	Font->Print(xStart + xShift / 4+1, y, L"¹");
@@ -676,13 +725,7 @@ void Manipulator::printCoords()
 	Font->Print(xStart + 2, yStart + yShift * (kRows + 2) - 2, L"more");
 	Font->Print(xStart + 2, yStart + yShift * (kRows + 3) - 2, L"less");
 
-	//horizontal 
-	for (int i = 0; i < kRows + 4; i++) {
-		glBegin(GL_LINES);
-		glVertex2f(xStart, yStart+i*yShift);
-		glVertex2f(xStart + xShift * (kColumns-1) - xShift / 4, yStart+i*yShift);
-		glEnd();
-	}
+	
 	int j = 0;
 	for (int i = 1; i < kAxis_+1; i++) {
 		if (distance(joints_[i-1], joints_[i]) > 0.0001) {
@@ -711,22 +754,14 @@ void Manipulator::printCoords()
 
 	//frame around grip coordinates
 	glColor3f(1.0f, 0.0f, 0.0f); //change color to red
-	glBegin(GL_LINES);
-	glVertex2f(xStart-0.5, yStart+yShift*kRows);
-	glVertex2f(xStart-0.5, yStart + yShift * (kRows + 1));
-	glEnd();
-	glBegin(GL_LINES);
-	glVertex2f(xStart + (kColumns-1) * xShift - xShift / 4+0.5, yStart + yShift * kRows);
-	glVertex2f(xStart + (kColumns - 1) * xShift - xShift / 4+0.5, yStart + yShift * (kRows + 1));
-	glEnd();
-	glBegin(GL_LINES);
-	glVertex2f(xStart-0.5, yStart+yShift * kRows - 0.5);
-	glVertex2f(xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * kRows-0.5);
-	glEnd();
-	glBegin(GL_LINES);
-	glVertex2f(xStart - 0.5, yStart + yShift * (kRows+1)+0.5);
-	glVertex2f(xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart +yShift * (kRows+1)+0.5);
-	glEnd();
+	drawLine(xStart-0.5, yStart+yShift*kRows,
+		     xStart-0.5, yStart + yShift * (kRows + 1));
+	drawLine(xStart + (kColumns-1) * xShift - xShift / 4+0.5, yStart + yShift * kRows,
+		     xStart + (kColumns - 1) * xShift - xShift / 4+0.5, yStart + yShift * (kRows + 1));
+	drawLine(xStart-0.5, yStart+yShift * kRows - 0.5,
+	         xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * kRows-0.5);
+	drawLine(xStart - 0.5, yStart + yShift * (kRows+1)+0.5, 
+			 xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart +yShift * (kRows+1)+0.5);
 
 	glEnable(GL_DEPTH_TEST);
 }
@@ -740,53 +775,71 @@ void Manipulator::printOrientation() {
 	float xStart = getXStartL();
 	float yShift = getYShift();
 	float yStart = getYStartT();
-	//int kColumns = 5;
-	//int kRows = kJoints_;
+	int kColumns = 3;
+	int kARows = 3; //3-euler angles, 1-empty row, 5-R matrix 
+	int kERows = 1;
+	int kRRows = 7;
+	int kRows = kARows + kERows + kRRows;
 
-	////vertical lines
-	//glBegin(GL_LINES);
-	//glVertex2f(xStart, yStart);
-	//glVertex2f(xStart, yStart + yShift * (kRows + 3));
-	//glEnd();
-	//for (int i = 1; i < kColumns; i++) {
-	//	glBegin(GL_LINES);
-	//	glVertex2f(xStart + i * xShift - xShift / 4, yStart);
-	//	glVertex2f(xStart + i * xShift - xShift / 4, yStart + yShift * kRows);
-	//	glEnd();
-	//}
+	glColor3f(0.493, 0.493, 0.833);
+	//vertical lines
+	for (int i = 0; i < kColumns+1; i++) {
+		if (i == 0 | i == kColumns) {
+			drawLine(xStart + i * xShift, yStart,
+				xStart + i * xShift, yStart + yShift * kARows);
+			drawLine(xStart + i * xShift, yStart + yShift * (kARows + kERows),
+				xStart + i * xShift, yStart + yShift * (kRows));
+		}
+		else {
+			drawLine(xStart + i * xShift, yStart+yShift,
+				xStart + i * xShift, yStart + yShift * kARows);
+			drawLine(xStart + i * xShift, yStart + yShift * (kARows + kERows+1),
+				xStart + i * xShift, yStart + yShift * (kRows));
+		}
+	}
+	//horizontal lines
+	for (int i = 0; i < kRows + 1; i++) {
+		drawLine(xStart, yStart + i * yShift,
+			xStart + xShift * (kColumns), yStart + i * yShift);
+	}
 
-	//float y = yStart + yShift - 2;
-	//Font->Print(xStart + xShift / 4 + 1, y, L"¹");
-	//Font->Print(xStart + xShift + xShift / 4 + 0.5, y, L"x");
-	//Font->Print(xStart + 2 * xShift + xShift / 4 + 0.5, y, L"y");
-	//Font->Print(xStart + 3 * xShift + xShift / 4 + 0.5, y, L"z");
-	//Font->Print(xStart + 2, yStart + yShift * (kRows + 2) - 2, L"more");
-	//Font->Print(xStart + 2, yStart + yShift * (kRows + 3) - 2, L"less");
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-	////horizontal 
-	//for (int i = 0; i < kRows + 4; i++) {
-	//	glBegin(GL_LINES);
-	//	glVertex2f(xStart, yStart + i * yShift);
-	//	glVertex2f(xStart + xShift * (kColumns - 1) - xShift / 4, yStart + i * yShift);
-	//	glEnd();
-	//}
-	//int j = 0;
-	//for (int i = 1; i < kAxis_ + 1; i++) {
-	//	if (distance(joints_[i - 1], joints_[i]) > 0.0001) {
-	//		float y = yStart + yShift * (j + 2) - 2;
-	//		//coords number
-	//		Font->Print(xStart + xShift / 4 + 1, y, std::to_wstring(j + 1).c_str());
-	//		//x, y, z coordinates
-	//		std::wstring text = std::to_wstring(joints_[i].x).substr(0, kSimb);
-	//		Font->Print(xStart + xShift - 0.5, y, text.c_str());
-	//		text = std::to_wstring(joints_[i].y).substr(0, kSimb);
-	//		Font->Print(xStart + xShift * 2 - 0.5, y, text.c_str());
-	//		text = std::to_wstring(joints_[i].z).substr(0, kSimb);
-	//		Font->Print(xStart + xShift * 3 - 0.5, y, text.c_str());
-	//		j += 1;
-	//	}
-	//}
-	//glEnable(GL_DEPTH_TEST);
+	float y = yStart + yShift - 2;
+	Font->Print(xStart + xShift  -2, y, L"Euler angles");
+	y = yStart + 2 * yShift - 2;
+	Font->Print(xStart  + xShift / 3 + 1.5, y, L"z1");
+	Font->Print(xStart + xShift + xShift / 3 + 1.5, y, L"y2");
+	Font->Print(xStart + 2 * xShift + xShift / 3 + 1.5, y, L"z3");
+	y= yStart + (kARows + kERows + 1) * yShift - 2;
+	Font->Print(xStart + +xShift / 2 + 3, y, L"Rotation matrix");
+
+	y = yStart + (kARows + kERows + 2) * yShift - 2;
+	glColor3f(getColor((COLOR)0)[0], getColor((COLOR)0)[1], getColor((COLOR)0)[2]);
+	Font->Print(xStart + xShift / 3 + 2, y, L"x");
+	glColor3f(getColor((COLOR)1)[0], getColor((COLOR)1)[1], getColor((COLOR)1)[2]);
+	Font->Print(xStart +  xShift + xShift / 3 + 2, y, L"y");
+	glColor3f(getColor((COLOR)2)[0], getColor((COLOR)2)[1], getColor((COLOR)2)[2]);
+	Font->Print(xStart + 2 * xShift + xShift / 3 + 2, y, L"z");
+	glColor3f(1.0f, 1.0f, 1.0f);
+
+	
+	y = yStart + 3 * yShift - 2;
+	for (int i = 0; i < 3; i++) {
+		std::wstring text = std::to_wstring(toDegrees(EulerAngles_[i].get())).substr(0, kSimb);
+		Font->Print(xStart + xShift*i + xShift/4 - 0.5, y, text.c_str());
+	}
+	for (int j = 0; j < 3; j++) {
+		float x = xStart + xShift * j + xShift / 4 - 0.5;
+		for (int i = 0; i < 3; i++) {
+			y = yStart + yShift * (kARows + kERows + i + 3) - 2;
+			
+			std::wstring text = std::to_wstring(R_(i, j)).substr(0, kSimb);
+			Font->Print(x, y, text.c_str());
+		}
+		FontM->Print(x+3, yStart + yShift * (kARows + kERows + 3 + 3)-2, L"\u21BB");
+		FontM->Print(x+3, yStart + yShift * (kARows + kERows + 4 + 3)-2, L"\u21BA");
+	}
 }
 std::wstring Error_to_string(Error error)
 {
@@ -810,6 +863,7 @@ void Manipulator::printFunctions()
 	int kRows = 7;
 
 	//vertical lines
+	glColor3f(0.493, 0.493, 0.833);
 	float yEnd = yStart + yShift * kRows;
 	drawLine(xStart, yStart,
 			 xStart, yEnd);
@@ -817,6 +871,12 @@ void Manipulator::printFunctions()
 			 xStart+xShift1, yEnd);
 	drawLine(xStart + xShift1+xShift2, yStart,
 		xStart + xShift1+xShift2, yEnd);
+	//horizontal 
+	for (int i = 0; i < kRows + 1; i++) {
+		drawLine(xStart, yStart + i * yShift,
+			xStart + xShift1 + xShift2, yStart + i * yShift);
+	}
+	glColor3f(1, 1, 1);
 
 	std::wstring text = Error_to_string(error_);
 	Font->Print(xStart + 2, yStart + yShift-2, text.c_str());
@@ -830,12 +890,6 @@ void Manipulator::printFunctions()
 	// f (f, b), (r, l), (t, b) 
 	// * (*, x), (->, <-), (|, |)
 
-	//horizontal 
-	for (int i = 0; i < kRows + 1; i++) {
-		drawLine(xStart, yStart + i * yShift,
-				 xStart + xShift1+xShift2, yStart + i * yShift);
-	}
-
 }
 void Manipulator::printInfo() {
 	printAngles();
@@ -843,6 +897,11 @@ void Manipulator::printInfo() {
 	printOrientation();
 	printFunctions();
 }
+//==========================================================================================================================|
+//																															|
+//														 _MOUSE 															|
+//																															|
+//==========================================================================================================================|
 void Manipulator::changeByMouse(float x, float y) {
 	//angles
 	float angularSpeed= toRadians(1);
@@ -852,7 +911,7 @@ void Manipulator::changeByMouse(float x, float y) {
 	float yStart = getYStartT();
 	//x = xStart + xShift * (i+1)+0.5-2;
 	int i = floor((x - xStart - 0.5 + 2) / xShift );
-	if (0 < i < kAxis_) {
+	if (0 < i && i< kAxis_+1) { //angles
 		if (yStart + yShift * 3 < y && y < yStart + yShift * 4) {
 			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
 			changeAngle(i, angularSpeed);
@@ -861,36 +920,59 @@ void Manipulator::changeByMouse(float x, float y) {
 			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
 			changeAngle(i, -angularSpeed);
 		}
-		else {
-			float linearSpeed = 3;
-			xShift = getXShift();
-			xStart = getXStartL();
-			yShift = getYShift();
-			yStart = getYStartL(kAxis_);
-			//xStart + i * xShift - xShift / 4
-			i = floor((x - xStart +xShift/4) / xShift);
-			int sign = 0;
-			if (yStart + yShift * (kJoints_+1) < y && y < yStart + yShift * (kJoints_+2)) sign = 1;
-			if (yStart + yShift * (kJoints_+2) < y && y < yStart + yShift * (kJoints_+3 )) sign = -1;
-			Point dCoords = Point(0, 0, 0);
-			if (i == 1) dCoords.x = sign * linearSpeed;
-			if (i == 2) dCoords.y = sign * linearSpeed;
-			if (i == 3) dCoords.z = sign * linearSpeed;
-			if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
+	}
+	else { //coords
+		float linearSpeed = 3;
+		xShift = getXShift();
+		xStart = getXStartL();
+		yShift = getYShift();
+		yStart = getYStartL(kAxis_);
+		//xStart + i * xShift - xShift / 4
+		i = floor((x - xStart + xShift / 4) / xShift);
+		int sign = 0;
+		if (yStart + yShift * (kJoints_ + 1) < y && y < yStart + yShift * (kJoints_ + 2)) sign = 1;
+		if (yStart + yShift * (kJoints_ + 2) < y && y < yStart + yShift * (kJoints_ + 3)) sign = -1;
+		Point dCoords = Point(0, 0, 0);
+		if (i == 1) dCoords.x = sign * linearSpeed;
+		if (i == 2) dCoords.y = sign * linearSpeed;
+		if (i == 3) dCoords.z = sign * linearSpeed;
+		if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
+			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+			changePosition(dCoords);
+		}
+
+		//orientation
+		xShift = getXShift();
+		xStart = getXStartL();
+		yShift = getYShift();
+		yStart = getYStartT();
+		int kRows = 11;
+		float angularOrientSpeed = toRadians(1);
+		i = floor((x - xStart) / xShift)+1;
+		if (0 < i && i< 4) {
+			if (yStart + (kRows - 2) * yShift < y && y < yStart + (kRows - 1) * yShift) {
+				changeOrientation(i, angularOrientSpeed);
 				isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-				changePosition(dCoords);
+			}
+			if (yStart + (kRows - 1) * yShift < y && y < yStart + (kRows)*yShift) {
+				changeOrientation(i, -angularOrientSpeed);
+				isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
 			}
 		}
-	}
 
+	}
+	/*float x = xStart + xShift * j + xShift / 4 - 0.5;
+	y = yStart + yShift * (kARows + kERows + i + 3) - 2;*/
+
+	//functions
 	if (getXStartR()<x && x<getXStartR()+getXShiftR1()) {
 		if (getYStartR() + getYShift()<y && y< getYStartR() + 2*getYShift()) {
-			for (int i = 0; i < kAxis_; i++) {
+			for (int i = 0; i < kAxis_; i++) { //start position
 				angles_[i] = Angle(0);
 			}
 			setAngles(angles_);
 		}
-		if (getYStartR() + 6*getYShift() < y && y < getYStartR() + 7 * getYShift()) {
+		if (getYStartR() + 6*getYShift() < y && y < getYStartR() + 7 * getYShift()) { // go by GCODE
 			goByGCODE("AbsoluteCube1.gcode");
 		}
 	}
@@ -901,7 +983,7 @@ void Manipulator::stopChangeByMouse() {
 
 //==========================================================================================================================|
 //																															|
-//														 GCODES 															|
+//														_GCODES 															|
 //																															|
 //==========================================================================================================================|
 std::vector<float> parse(std::string line) {
@@ -987,7 +1069,7 @@ void Manipulator::goByGCODE(std::string fileName) {
 
 //==========================================================================================================================|
 //																															|
-//													THREE AXIS RRR MANIPULATOR												|
+//												 _THREE AXIS RRR MANIPULATOR												|
 //																															|
 //==========================================================================================================================|
 ThreeAxisRrrManipulator::ThreeAxisRrrManipulator()
@@ -1098,7 +1180,7 @@ Error ThreeAxisRrrManipulator::getError() {
 
 //==========================================================================================================================|
 //																															|
-//												SIX AXIS STANDARD MANIPULATOR												|
+//										    	_SIX AXIS STANDARD MANIPULATOR												|
 //																															|
 //==========================================================================================================================|
 
@@ -1196,7 +1278,7 @@ Eigen::Matrix3d SixAxisStandardManipulator::getR3() {
 void SixAxisStandardManipulator::inverseKinematics() 
 {
 	Eigen::Vector3d zv (0, 0, 1);
-	Eigen::Vector3d p46 = d_[5] * getR(H_[kAxis_]) * zv;
+	Eigen::Vector3d p46 = d_[5] * R_ * zv;
 	Point p04 = coords_ - Point(p46);
 
 	firstThreeAxis.setPosition(p04);
@@ -1204,7 +1286,7 @@ void SixAxisStandardManipulator::inverseKinematics()
 	error_ = firstThreeAxis.getError();
 	angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2]+PI/2;
 	Eigen::Matrix3d R3 = getR3();
-	Eigen::Matrix3d R36 = R3.transpose()*getR(H_[kAxis_]);
+	Eigen::Matrix3d R36 = R3.transpose()*R_;
 	std::array<Angle, 3> angles36 = findEulerAngles(R36);
 	angles_[3] = angles36[0]; angles_[4] = angles36[1]; angles_[5] = angles36[2];
 	//angles_[3] = 0; angles_[4] = 0; angles_[5]=0;

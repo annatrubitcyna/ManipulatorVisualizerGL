@@ -301,10 +301,10 @@ bool isCameraRotate = false;
 
 void mouseButton(int button, int state, int x, int y)
 {
-	if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
+	if ((button == GLUT_RIGHT_BUTTON || button == GLUT_MIDDLE_BUTTON) && state == GLUT_DOWN) {
 		isCameraRotate = true;
 	}
-	if (button == GLUT_RIGHT_BUTTON && state == GLUT_UP) {
+	if ((button == GLUT_RIGHT_BUTTON || button == GLUT_MIDDLE_BUTTON) && state == GLUT_UP) {
 		isCameraRotate = false;
 	}
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
@@ -380,6 +380,7 @@ void mouseWheelToMousePoint(int button, int dir, int x, int y) {
 // and create display lists.
 void init()
 {
+	glDisable(GL_BLEND);
 	glDisable(GL_LIGHTING);
 }
 
@@ -485,6 +486,7 @@ int main(int argc, char** argv) {
 	//	(glutGet(GLUT_SCREEN_HEIGHT) - getWindowHeight()) / 2); //left top corner offset
 	glutInitWindowPosition(0, 0);
 	glutCreateWindow("Manipulator Visualizer");
+	glEnable(GL_BLEND);
 	glutDisplayFunc(display); //setup
 	glutReshapeFunc(reshape); //changing window size
 

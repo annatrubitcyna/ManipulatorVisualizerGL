@@ -16,8 +16,8 @@ double toDegrees(double angle);
 
 enum COLOR {
 	RED,
-	BLUE,
 	GREEN,
+	BLUE,
 	YELLOW,
 	GREEN_BLUE,
 	PINK,
@@ -130,9 +130,11 @@ public:
 	void changeBaseCoords(Point baseCoords);
 	void changeAngle(int i, double aAngle);
 	void changePosition(Point dCoords);
+	void changeOrientation(int axis, float dAngle);
 	void setPosition(Point coords, Eigen::Matrix3d R); //only for manipulators with inverse 
 	void setPosition(Point coords);
 	void setAngles(std::vector<double> angles);
+	void setOrientation(Eigen::Matrix3d R);
 
 	void drawManipulator();
 	void drawCoordSystem(int i, double axisLen);
