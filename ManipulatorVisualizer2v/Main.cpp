@@ -20,12 +20,12 @@ static const int FPS = 60;
 
 int getWindowWidth() 
 {
-	return 1500;
+	return 1600;
 }
 
 int getWindowHeight()
 {
-	return 700;
+	return 800;
 }
 
 int getScreneToCentreDistance() //how close is camera to center of the scene
@@ -308,8 +308,8 @@ void mouseButton(int button, int state, int x, int y)
 		isCameraRotate = false;
 	}
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		float xPr = float(x) / getWindowWidth() * 200; //change to 200 %
-		float yPr = float(y) / getWindowHeight() * 200;
+		float xPr = float(x) / glutGet(GLUT_WINDOW_WIDTH) * 200; //change to 200 %
+		float yPr = float(y) / glutGet(GLUT_WINDOW_HEIGHT) * 200;
 		manipulator.changeByMouse(xPr, yPr);
 	}
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {

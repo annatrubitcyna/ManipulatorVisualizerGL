@@ -95,6 +95,7 @@ protected:
 	std::vector<Angle> angles_; //angle around zi-1 from xi-1 to xi
 	std::vector<Eigen::Matrix4d> H_; //homogeneous transformation matrices (kAxis)
 	Eigen::Matrix3d R_; //rotation matrix for grip
+	std::array<Angle, 3> EulerAngles_;
 	Error error_;
 	
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> J_; // DH kAxis, kAxis
@@ -115,9 +116,11 @@ protected:
 
 	void printAngles();
 	void printCoords();
+	void printOrientation();
 	void printFunctions();
-
 	std::vector<int> isChangedByMouse_; //1- yes or not, 2,3- x y mouse coords 
+
+	void goByGCODE(std::string fileName);
 
 public:
 	Manipulator() {};

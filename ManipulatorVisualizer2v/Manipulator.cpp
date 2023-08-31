@@ -10,6 +10,7 @@
 #include "font.h"
 #include <wchar.h>
 
+#include <fstream>
 
 const char* ttf = "C:/Windows/Fonts/arial.ttf";
 const char* ttf2 = "C:/Users/Ann/Downloads/FTGL/arial.ttf";
@@ -157,6 +158,7 @@ Angle operator-(Angle a1, Angle a2)
 void Manipulator::initializeVectorsAsNull() {
 	coords_ = Point(0, 0, 0);
 	R_ = Eigen::Matrix3d::Zero();
+	EulerAngles_ = findEulerAngles(R_);
 	H_.push_back(Eigen::Matrix4d::Identity());
 	joints_.push_back(Point(0.0, 0.0, 0.0));
 	for (int i = 0; i < kAxis_; i++) {
@@ -572,11 +574,11 @@ float getYStartR()
 {
 	return (200 - getYShift() * 7) / 2;
 }
-float getXShiftR1() {
+float getXShiftR1() { //2 column
 	return 30;
 }
-float getXShiftR2() {
-	return 5;
+float getXShiftR2() { //1 column
+	return 5; 
 }
 
 void Manipulator::printAngles() 
@@ -668,9 +670,9 @@ void Manipulator::printCoords()
 
 	float y = yStart + yShift - 2;
 	Font->Print(xStart + xShift / 4+1, y, L"¹");
-	Font->Print(xStart + xShift + xShift / 4, y, L"x");
-	Font->Print(xStart + 2 * xShift + xShift / 4, y, L"y");
-	Font->Print(xStart + 3 * xShift + xShift / 4, y, L"z");
+	Font->Print(xStart + xShift + xShift / 4+0.5, y, L"x");
+	Font->Print(xStart + 2 * xShift + xShift / 4+0.5, y, L"y");
+	Font->Print(xStart + 3 * xShift + xShift / 4+0.5, y, L"z");
 	Font->Print(xStart + 2, yStart + yShift * (kRows + 2) - 2, L"more");
 	Font->Print(xStart + 2, yStart + yShift * (kRows + 3) - 2, L"less");
 
@@ -728,6 +730,64 @@ void Manipulator::printCoords()
 
 	glEnable(GL_DEPTH_TEST);
 }
+void Manipulator::printOrientation() {
+	glRasterPos2f(0.3, 0.3);
+	glDisable(GL_DEPTH_TEST);
+	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
+
+	int kSimb = 6; // number of simbols after comma for coordinates=kSimb-4
+	float xShift = getXShift();
+	float xStart = getXStartL();
+	float yShift = getYShift();
+	float yStart = getYStartT();
+	//int kColumns = 5;
+	//int kRows = kJoints_;
+
+	////vertical lines
+	//glBegin(GL_LINES);
+	//glVertex2f(xStart, yStart);
+	//glVertex2f(xStart, yStart + yShift * (kRows + 3));
+	//glEnd();
+	//for (int i = 1; i < kColumns; i++) {
+	//	glBegin(GL_LINES);
+	//	glVertex2f(xStart + i * xShift - xShift / 4, yStart);
+	//	glVertex2f(xStart + i * xShift - xShift / 4, yStart + yShift * kRows);
+	//	glEnd();
+	//}
+
+	//float y = yStart + yShift - 2;
+	//Font->Print(xStart + xShift / 4 + 1, y, L"¹");
+	//Font->Print(xStart + xShift + xShift / 4 + 0.5, y, L"x");
+	//Font->Print(xStart + 2 * xShift + xShift / 4 + 0.5, y, L"y");
+	//Font->Print(xStart + 3 * xShift + xShift / 4 + 0.5, y, L"z");
+	//Font->Print(xStart + 2, yStart + yShift * (kRows + 2) - 2, L"more");
+	//Font->Print(xStart + 2, yStart + yShift * (kRows + 3) - 2, L"less");
+
+	////horizontal 
+	//for (int i = 0; i < kRows + 4; i++) {
+	//	glBegin(GL_LINES);
+	//	glVertex2f(xStart, yStart + i * yShift);
+	//	glVertex2f(xStart + xShift * (kColumns - 1) - xShift / 4, yStart + i * yShift);
+	//	glEnd();
+	//}
+	//int j = 0;
+	//for (int i = 1; i < kAxis_ + 1; i++) {
+	//	if (distance(joints_[i - 1], joints_[i]) > 0.0001) {
+	//		float y = yStart + yShift * (j + 2) - 2;
+	//		//coords number
+	//		Font->Print(xStart + xShift / 4 + 1, y, std::to_wstring(j + 1).c_str());
+	//		//x, y, z coordinates
+	//		std::wstring text = std::to_wstring(joints_[i].x).substr(0, kSimb);
+	//		Font->Print(xStart + xShift - 0.5, y, text.c_str());
+	//		text = std::to_wstring(joints_[i].y).substr(0, kSimb);
+	//		Font->Print(xStart + xShift * 2 - 0.5, y, text.c_str());
+	//		text = std::to_wstring(joints_[i].z).substr(0, kSimb);
+	//		Font->Print(xStart + xShift * 3 - 0.5, y, text.c_str());
+	//		j += 1;
+	//	}
+	//}
+	//glEnable(GL_DEPTH_TEST);
+}
 std::wstring Error_to_string(Error error)
 {
 	switch (error)
@@ -735,7 +795,7 @@ std::wstring Error_to_string(Error error)
 	case OK:   return L"OK";
 	case OUT_OF_WORKSPACE:   return L"OUT_OF_SPACE";
 	}
-};
+}
 void Manipulator::printFunctions()
 {
 	glRasterPos2f(0.3, 0.3);
@@ -780,6 +840,7 @@ void Manipulator::printFunctions()
 void Manipulator::printInfo() {
 	printAngles();
 	printCoords();
+	printOrientation();
 	printFunctions();
 }
 void Manipulator::changeByMouse(float x, float y) {
@@ -829,10 +890,97 @@ void Manipulator::changeByMouse(float x, float y) {
 			}
 			setAngles(angles_);
 		}
+		if (getYStartR() + 6*getYShift() < y && y < getYStartR() + 7 * getYShift()) {
+			goByGCODE("AbsoluteCube1.gcode");
+		}
 	}
 }
 void Manipulator::stopChangeByMouse() {
 	isChangedByMouse_[0] = 0;
+}
+
+//==========================================================================================================================|
+//																															|
+//														 GCODES 															|
+//																															|
+//==========================================================================================================================|
+std::vector<float> parse(std::string line) {
+		line += ' ';
+		int k_gcode = 5;
+		float table_x = 50;
+		float table_y = 50;
+		float table_z = 50;
+		float x_g=table_x;
+		float y_g=table_y;
+		float z_g=table_z;
+		float e_g=0;
+		float f_g=0;
+		
+		int i;
+		i = line.rfind("Z") + 1;
+		if (i != 0) {    // because if Z hasn't been found that line.find=-1, i=0
+			std::string z_gs = "";
+			while (((i == (line.length() - 1)) | (line[i] == ' ') | (line[i] == ';')) == false) {
+				z_gs += line[i];
+				i += 1;
+			}
+			z_g = table_z + std::stof(z_gs) / k_gcode;
+		}
+
+		i = line.rfind("X") + 1;
+		if (i != 0) {
+			std::string x_gs = "";
+			while (((i == line.length() - 1) | (line[i] == ' ') | (line[i] == ';')) == false) {
+				x_gs += line[i];
+				i += 1;
+			}
+			x_g = table_x + std::stof(x_gs) / k_gcode;
+		}
+
+		i = line.rfind("Y") + 1;
+		if (i != 0) {
+			std::string y_gs = "";
+			while (((i == line.length() - 1) | (line[i] == ' ') | (line[i] == ';')) == false) {
+				y_gs += line[i];
+				i += 1;
+			}
+			y_g = table_y + std::stof(y_gs) / k_gcode;
+		}
+
+		i = line.rfind("E") + 1;
+		if (i != 0) {
+			std::string e_gs = "";
+			while (((i == line.length() - 1) | (line[i] == ' ') | (line[i] == ';')) == false) {
+				e_gs += line[i];
+				i += 1;
+			}
+			e_g = std::stof(e_gs);
+		}
+
+		i = line.rfind("F") + 1;
+		if (i != 0) {
+			std::string f_gs = "";
+			while (((i == line.length() - 1) | (line[i - 1] == ' ') | (line[i - 1] == ';')) == false) {
+				f_gs += line[i];
+				i += 1;
+				//print(i);
+			}
+			f_g = std::stof(f_gs);
+		}
+		std::vector<float> new_point_r = { x_g, y_g, z_g, e_g, f_g };
+		return new_point_r;
+}
+
+void Manipulator::goByGCODE(std::string fileName) {
+	std::string line;
+	std::ifstream file(fileName);
+
+	while (std::getline(file, line)) {
+		if (line.rfind("G1 ", 0) == 0) {
+			std::vector<float> targetPoint = parse(line);
+		}
+	}
+	file.close();
 }
 
 
