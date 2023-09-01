@@ -7,6 +7,7 @@
 
 
 
+
 const double PI = 3.141592653589793238463;
 
 double toRadians(double angle);
@@ -115,6 +116,7 @@ protected:
 	void countGeomJacobian();
 
 	void printAngles();
+	void printAngles2();
 	void printCoords();
 	void printOrientation();
 	void printFunctions();

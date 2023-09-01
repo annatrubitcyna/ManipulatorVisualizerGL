@@ -35,13 +35,13 @@ double toDegrees(double angle)
 	return angle * 180 / PI;
 }
 
-void drawLine(float x1, float y1, float x2, float y2) 
-{
-	glBegin(GL_LINES);
-	glVertex2f(x1, y1);
-	glVertex2f(x2, y2);
-	glEnd();
-}
+//void drawLine(float x1, float y1, float x2, float y2) 
+//{
+//	glBegin(GL_LINES);
+//	glVertex2f(x1, y1);
+//	glVertex2f(x2, y2);
+//	glEnd();
+//}
 
 Eigen::Matrix3d getR(Eigen::Matrix4d H)
 {
@@ -628,9 +628,32 @@ float getXShiftR2() { //1 column
 //==========================================================================================================================|
 //													_Angles Printing														|
 //==========================================================================================================================|
-void Manipulator::printAngles() 
+void Manipulator::printAngles()
+{
+	//printf("%f\n", Font->Font->Advance(L"abc"));
+	Table angleTable=Table(Font, 4, kAxis_, 6, 0);
+	std::vector<std::wstring> columnTitles = {L"¹"};
+	for (int i = 0; i < kAxis_; i++) columnTitles.push_back(std::to_wstring(i + 1));
+	angleTable.addColumnTitles(columnTitles);
+	std::vector<std::wstring> rowTitles = { L"deg", L"rad", L"more", L"less"};
+	angleTable.addRowTitles(rowTitles, 10);
+	float xStart = (200 - angleTable.wholeWidth_) / 2;
+	angleTable.setPosition(xStart, 2);
+	std::vector<std::vector<std::wstring>> data(angleTable.kRows_);
+	for (int i = 0; i < kAxis_; i++) {
+		data[0].push_back(std::to_wstring(toDegrees(angles_[i].get())).substr(0, angleTable.kSymb_));
+		data[1].push_back(std::to_wstring(angles_[i].get()).substr(0, angleTable.kSymb_)); //angle in radians
+		data[2].push_back(L"\u2191");
+		data[3].push_back(L"\u2193");
+	}
+	angleTable.setData(data);
+	angleTable.printTable();
+	//void setCallbacks(std::vector<std::vector<std::function<void(int)>>> callbacks);*/
+}
+
+void Manipulator::printAngles2() 
 {	
-	glRasterPos2f(0.3, 0.3);
+	//glRasterPos2f(0.3, 0.3);
 	glDisable(GL_DEPTH_TEST);
 	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
 
