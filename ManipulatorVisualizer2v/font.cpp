@@ -73,6 +73,9 @@ Table::Table(CFont* font, int kRows, int kColumns,int kSymb, float xShift, float
 	wholeWidth_ = kColumns_ * xShift_;
 	wholeHeight_ = kRows_ * yShift_;
 }
+Table::Table() {
+
+}
 
 void Table::setPosition(float xStart, float yStart) 
 {
@@ -101,7 +104,7 @@ void Table::setData(std::vector<std::vector<std::wstring>> data)
 {
 	data_ = data;
 }
-void Table::setCallbacks(std::vector<std::vector<std::function<void(int)>>> callbacks)
+void Table::setCallbacks(std::vector<std::vector<std::function<void()>>> callbacks)
 {
 	callbacks_ = callbacks;
 }
@@ -187,7 +190,16 @@ void Table::printTable() {
 	}
 }
 void Table::mousePress(float x, float y) {
-	int i = floor((x - xStart_ - xTitleShift_) / xShift_);
-	int j = floor((y - yStart_ - yMainTitleShift_ - yTitleShift_) / yShift_);
-	callbacks_[i][j];
+	int i = floor((y - yStart_ - yMainTitleShift_ - yTitleShift_) / yShift_);
+	int j = floor((x - xStart_ - xTitleShift_) / xShift_);
+	if( 0<=i && i<kRows_ && 0<=j && j<kColumns_)
+		callbacks_[i][j]();
+}
+
+std::vector<std::vector<std::function<void()>>> Table::initNullCallbacks() {
+	std::vector<std::vector<std::function<void()>>> nullCallbacks(kRows_);
+	for (int i = 0; i < kRows_; i++) {
+		nullCallbacks[i] = std::vector<std::function<void()>>(kColumns_);
+	}
+	return nullCallbacks;
 }

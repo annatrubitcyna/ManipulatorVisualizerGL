@@ -7,7 +7,6 @@
 //#include <GL/glut.h>
 #include "Manipulator.h"
 
-#include "font.h"
 #include <wchar.h>
 
 #include <fstream>
@@ -628,27 +627,37 @@ float getXShiftR2() { //1 column
 //==========================================================================================================================|
 //													_Angles Printing														|
 //==========================================================================================================================|
+
 void Manipulator::printAngles()
 {
-	//printf("%f\n", Font->Font->Advance(L"abc"));
-	Table angleTable=Table(Font, 4, kAxis_, 6, 0);
+	angleTable_=Table(Font, 4, kAxis_, 6, 0);
 	std::vector<std::wstring> columnTitles = {L"¹"};
 	for (int i = 0; i < kAxis_; i++) columnTitles.push_back(std::to_wstring(i + 1));
-	angleTable.addColumnTitles(columnTitles);
+	angleTable_.addColumnTitles(columnTitles);
 	std::vector<std::wstring> rowTitles = { L"deg", L"rad", L"more", L"less"};
-	angleTable.addRowTitles(rowTitles, 10);
-	float xStart = (200 - angleTable.wholeWidth_) / 2;
-	angleTable.setPosition(xStart, 2);
-	std::vector<std::vector<std::wstring>> data(angleTable.kRows_);
+	angleTable_.addRowTitles(rowTitles, 10);
+	float xStart = (200 - angleTable_.wholeWidth_) / 2;
+	angleTable_.setPosition(xStart, 2);
+	std::vector<std::vector<std::wstring>> data(angleTable_.kRows_);
 	for (int i = 0; i < kAxis_; i++) {
-		data[0].push_back(std::to_wstring(toDegrees(angles_[i].get())).substr(0, angleTable.kSymb_));
-		data[1].push_back(std::to_wstring(angles_[i].get()).substr(0, angleTable.kSymb_)); //angle in radians
+		data[0].push_back(std::to_wstring(toDegrees(angles_[i].get())).substr(0, angleTable_.kSymb_));
+		data[1].push_back(std::to_wstring(angles_[i].get()).substr(0, angleTable_.kSymb_)); //angle in radians
 		data[2].push_back(L"\u2191");
 		data[3].push_back(L"\u2193");
 	}
-	angleTable.setData(data);
-	angleTable.printTable();
-	//void setCallbacks(std::vector<std::vector<std::function<void(int)>>> callbacks);*/
+	angleTable_.setData(data);
+
+	std::vector<std::vector<std::function<void()>>> callbacks=angleTable_.initNullCallbacks();
+	double angularSpeed = toRadians(1);
+	for (int i = 0; i < angleTable_.kColumns_; i++) {
+		std::function<void()> callback = std::bind(&Manipulator::changeAngle, this, i+1, angularSpeed);
+		callbacks[2][i] = callback;
+		callback = std::bind(&Manipulator::changeAngle, this, i + 1, -angularSpeed);
+		callbacks[3][i] = callback;
+	}
+	angleTable_.setCallbacks(callbacks);
+
+	angleTable_.printTable();
 }
 
 void Manipulator::printAngles2() 
@@ -1095,108 +1104,114 @@ void Manipulator::printInfo() {
 //																															|
 //==========================================================================================================================|
 int Manipulator::changeByMouse(float x, float y) {
-	//angles
-	float angularSpeed = toRadians(1);
-	float xShift = getXShift();
-	float xStart = getXStartT(kAxis_);
-	float yShift = getYShift();
-	float yStart = getYStartT();
-	//x = xStart + xShift * (i+1)+0.5-2;
-	int i = floor((x - xStart - 0.5 + 2) / xShift);
-	if (0 < i && i < kAxis_ + 1) { //angles
-		if (yStart + yShift * 3 < y && y < yStart + yShift * 4) {
-			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-			changeAngle(i, angularSpeed);
-		}
-		else if (yStart + yShift * 4 < y && y < yStart + yShift * 5) {
-			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-			changeAngle(i, -angularSpeed);
-		}
-	}
-	//coords
-	float linearSpeed = 3;
-	xShift = getXShift();
-	xStart = getXStartL();
-	yShift = getYShift();
-	yStart = getYStartL(kAxis_);
-	//xStart + i * xShift - xShift / 4
-	i = floor((x - xStart + xShift / 4) / xShift);
-	int sign = 0;
-	if (yStart + yShift * (kJoints_ + 1) < y && y < yStart + yShift * (kJoints_ + 2)) sign = 1;
-	if (yStart + yShift * (kJoints_ + 2) < y && y < yStart + yShift * (kJoints_ + 3)) sign = -1;
-	Point dCoords = Point(0, 0, 0);
-	if (i == 1) dCoords.x = sign * linearSpeed;
-	if (i == 2) dCoords.y = sign * linearSpeed;
-	if (i == 3) dCoords.z = sign * linearSpeed;
-	if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
-		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-		changePosition(dCoords);
+	isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+	if(angleTable_.xStart_<x && x< (angleTable_.xStart_+ angleTable_.wholeWidth_)
+		&& angleTable_.yStart_ < y && y < (angleTable_.yStart_ + angleTable_.wholeHeight_)){
+		angleTable_.mousePress(x, y);
 	}
 
-	//orientation
-	xShift = getXShift();
-	xStart = getXStartL();
-	yShift = getYShift();
-	yStart = getYStartT();
-	int kRows = 11;
-	float angularOrientSpeed = toRadians(1);
-	i = floor((x - xStart) / xShift) + 1;
-	if (0 < i && i < 4) {
-		if (yStart + (kRows - 2) * yShift < y && y < yStart + (kRows - 1) * yShift) {
-			changeOrientation(i, angularOrientSpeed);
-			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-		}
-		if (yStart + (kRows - 1) * yShift < y && y < yStart + (kRows)*yShift) {
-			changeOrientation(i, -angularOrientSpeed);
-			isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-		}
-	}
+	////angles
+	//float angularSpeed = toRadians(1);
+	//float xShift = getXShift();
+	//float xStart = getXStartT(kAxis_);
+	//float yShift = getYShift();
+	//float yStart = getYStartT();
+	////x = xStart + xShift * (i+1)+0.5-2;
+	//int i = floor((x - xStart - 0.5 + 2) / xShift);
+	//if (0 < i && i < kAxis_ + 1) { //angles
+	//	if (yStart + yShift * 3 < y && y < yStart + yShift * 4) {
+	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+	//		changeAngle(i, angularSpeed);
+	//	}
+	//	else if (yStart + yShift * 4 < y && y < yStart + yShift * 5) {
+	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+	//		changeAngle(i, -angularSpeed);
+	//	}
+	//}
+	////coords
+	//float linearSpeed = 3;
+	//xShift = getXShift();
+	//xStart = getXStartL();
+	//yShift = getYShift();
+	//yStart = getYStartL(kAxis_);
+	////xStart + i * xShift - xShift / 4
+	//i = floor((x - xStart + xShift / 4) / xShift);
+	//int sign = 0;
+	//if (yStart + yShift * (kJoints_ + 1) < y && y < yStart + yShift * (kJoints_ + 2)) sign = 1;
+	//if (yStart + yShift * (kJoints_ + 2) < y && y < yStart + yShift * (kJoints_ + 3)) sign = -1;
+	//Point dCoords = Point(0, 0, 0);
+	//if (i == 1) dCoords.x = sign * linearSpeed;
+	//if (i == 2) dCoords.y = sign * linearSpeed;
+	//if (i == 3) dCoords.z = sign * linearSpeed;
+	//if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
+	//	isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+	//	changePosition(dCoords);
+	//}
 
-	//functions
-	if (getXStartR() < x && x < getXStartR() + getXShiftR1()) {
-		if (getYStartR() + getYShift() < y && y < getYStartR() + 2 * getYShift()) {
-			for (int i = 0; i < kAxis_; i++) { //start position
-				angles_[i] = Angle(0);
-			}
-			setAngles(angles_);
-		}
-		if (getYStartR() + 6 * getYShift() < y && y < getYStartR() + 7 * getYShift()) { // go by GCODE
-			goByGCODE("AbsoluteCube1.gcode");
-		}
-	}
-	//cubePanel
-	xStart = 13;
-	yStart = 150;
-	float width = 35;
-	float height = 40;
-	float a = 7;
-	float shift = 3;
-	float between = 2;
-	float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
-	if (isCubePressed) {
-		i = 0;
-		if (yStart + height / 2 - (a + shift) / 2 < y && y < yStart + height / 2 - (a + shift) / 2 + a + shift) {
-			i = floor((x - (xStart - shift+5)) / (ax + shift + between)) + 1;
-		}
-		if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 - (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 - (a + shift - between) + shift + a) {
-			i = 5;
-		}
-		if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 + (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 + (a + shift - between) + shift + a) {
-			i = 6;
-		}
-		if (i != 0) {
-			return i;
-		}
-	}
+	////orientation
+	//xShift = getXShift();
+	//xStart = getXStartL();
+	//yShift = getYShift();
+	//yStart = getYStartT();
+	//int kRows = 11;
+	//float angularOrientSpeed = toRadians(1);
+	//i = floor((x - xStart) / xShift) + 1;
+	//if (0 < i && i < 4) {
+	//	if (yStart + (kRows - 2) * yShift < y && y < yStart + (kRows - 1) * yShift) {
+	//		changeOrientation(i, angularOrientSpeed);
+	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+	//	}
+	//	if (yStart + (kRows - 1) * yShift < y && y < yStart + (kRows)*yShift) {
+	//		changeOrientation(i, -angularOrientSpeed);
+	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
+	//	}
+	//}
 
-	//cube
-	xStart = 2;
-	yStart = 182;
-	a = 10;
-	shift = 3;
-	if (xStart < x && x < xStart + a + shift && yStart < y && y < yStart + yShift) {
-		isCubePressed = !isCubePressed;
-	}
+	////functions
+	//if (getXStartR() < x && x < getXStartR() + getXShiftR1()) {
+	//	if (getYStartR() + getYShift() < y && y < getYStartR() + 2 * getYShift()) {
+	//		for (int i = 0; i < kAxis_; i++) { //start position
+	//			angles_[i] = Angle(0);
+	//		}
+	//		setAngles(angles_);
+	//	}
+	//	if (getYStartR() + 6 * getYShift() < y && y < getYStartR() + 7 * getYShift()) { // go by GCODE
+	//		goByGCODE("AbsoluteCube1.gcode");
+	//	}
+	//}
+	////cubePanel
+	//xStart = 13;
+	//yStart = 150;
+	//float width = 35;
+	//float height = 40;
+	//float a = 7;
+	//float shift = 3;
+	//float between = 2;
+	//float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
+	//if (isCubePressed) {
+	//	i = 0;
+	//	if (yStart + height / 2 - (a + shift) / 2 < y && y < yStart + height / 2 - (a + shift) / 2 + a + shift) {
+	//		i = floor((x - (xStart - shift+5)) / (ax + shift + between)) + 1;
+	//	}
+	//	if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 - (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 - (a + shift - between) + shift + a) {
+	//		i = 5;
+	//	}
+	//	if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 + (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 + (a + shift - between) + shift + a) {
+	//		i = 6;
+	//	}
+	//	if (i != 0) {
+	//		return i;
+	//	}
+	//}
+
+	////cube
+	//xStart = 2;
+	//yStart = 182;
+	//a = 10;
+	//shift = 3;
+	//if (xStart < x && x < xStart + a + shift && yStart < y && y < yStart + yShift) {
+	//	isCubePressed = !isCubePressed;
+	//}
 	return 0;
 }
 void Manipulator::stopChangeByMouse() {

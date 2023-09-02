@@ -23,6 +23,7 @@ class CFont{
 #endif
 
 void drawLine(float x1, float y1, float x2, float y2);
+//typedef void (*Callback)();
 
 class Table {
 	public:
@@ -48,25 +49,23 @@ class Table {
 		std::vector<std::wstring> columnTitles_; //corner name there - size = kColumns+1
 		std::vector<std::wstring> rowTitles_; //size = kRows
 
-		//std::vector<std::vector<float>> data; //size = (kRows, kColumns)
-		std::vector<std::vector<std::wstring>> data_;
-		std::vector<std::vector<std::function<void(int)>>> callbacks_; //callbacks if the button have been pressed
-		//functions.emplace_back(std::bind(a, _1, _1)); _ if you want to use it
-		//std::function<void(int)> a = NULL;
+		std::vector<std::vector<std::wstring>> data_; //size = (kRows, kColumns)
+		std::vector<std::vector<std::function<void()>>> callbacks_; //callbacks if the button have been pressed
 
 
 		Table(CFont* font, int kRows=1, int kColumns=1, int kSymb = 6, float xShift = 12, float yShift = 7.0f, float yTextShift = 2.0f);
+		Table();
 
 		void setPosition(float xStart, float yStart);
 		void addMainTitle(std::wstring mainTitle, float yMainTitleShift = 7.0f);
 		void addColumnTitles(std::vector<std::wstring> columnTitles, float yTitleShift = 7.0f);
 		void addRowTitles(std::vector<std::wstring> rowTitles, float xTitleShift);
 		void setData(std::vector<std::vector<std::wstring>> data);
-		void setCallbacks(std::vector<std::vector<std::function<void(int)>>> callbacks);
+		void setCallbacks(std::vector<std::vector<std::function<void()>>> callbacks);
 
 		void printTable();
 		void mousePress(float x, float y);
-		/*int i = (x - xStart - xTitleShift) / xShift;
-		int j = (y - yStart - yMainTitleShift - yTitleShift) / yShift;
-		callbacks[i][j];*/
+
+		std::vector<std::vector<std::function<void()>>> initNullCallbacks();
+
 };

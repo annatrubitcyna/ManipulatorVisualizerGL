@@ -3,7 +3,7 @@
 #include <GL/glut.h>
 //#include <glm.hpp>
 #include <Eigen/Dense>
-
+#include "font.h"
 
 
 
@@ -72,6 +72,15 @@ enum Error {
 	OUT_OF_WORKSPACE  //can't solve inverse kinematics problem 
 };
 
+//class Tables {
+//	Table angularTable;
+//	Table coordsTable;
+//	Table eulerAnglesTable;
+//	Table orientationTable;
+//	Table functionTable;
+//	Tables();
+//};
+
 
 class Manipulator {
 protected:
@@ -102,7 +111,11 @@ protected:
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> J_; // DH kAxis, kAxis
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> geomJ_; //EXP kAxis, kAxis
 
-	//physics
+	Table angleTable_;
+	/*Table coordsTable_;
+	Table eulerAnglesTable_;
+	Table orientationTable_;
+	Table functionTable_;*/
 
 	void initializeVectorsAsNull();
 	void setAngles(std::vector<Angle> angles);
@@ -125,7 +138,6 @@ protected:
 	std::vector<int> isChangedByMouse_; //1- yes or not, 2,3- x y mouse coords 
 
 	void goByGCODE(std::string fileName);
-
 public:
 	Manipulator() {};
 	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh);
