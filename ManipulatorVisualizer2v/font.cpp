@@ -73,7 +73,8 @@ Table::Table(CFont* font, int kRows, int kColumns,int kSymb, float xShift, float
 	wholeWidth_ = kColumns_ * xShift_;
 	wholeHeight_ = kRows_ * yShift_;
 }
-Table::Table() {
+Table::Table() 
+{
 
 }
 
@@ -109,7 +110,8 @@ void Table::setCallbacks(std::vector<std::vector<std::function<void()>>> callbac
 	callbacks_ = callbacks;
 }
 
-void Table::printTable() {
+void Table::printTable() 
+{
 	float x; //helping variables
 	float y;
 	int k;
@@ -189,17 +191,31 @@ void Table::printTable() {
 		}
 	}
 }
-void Table::mousePress(float x, float y) {
+void Table::mousePress(float x, float y) 
+{
 	int i = floor((y - yStart_ - yMainTitleShift_ - yTitleShift_) / yShift_);
 	int j = floor((x - xStart_ - xTitleShift_) / xShift_);
-	if( 0<=i && i<kRows_ && 0<=j && j<kColumns_)
-		callbacks_[i][j]();
+	if (0 <= i && i < kRows_ && 0 <= j && j < kColumns_) {
+		if (callbacks_[i][j] != NULL) {
+			callbacks_[i][j]();
+		}
+	}
 }
 
-std::vector<std::vector<std::function<void()>>> Table::initNullCallbacks() {
+std::vector<std::vector<std::function<void()>>> Table::initNullCallbacks() 
+{
 	std::vector<std::vector<std::function<void()>>> nullCallbacks(kRows_);
 	for (int i = 0; i < kRows_; i++) {
 		nullCallbacks[i] = std::vector<std::function<void()>>(kColumns_);
 	}
 	return nullCallbacks;
+}
+
+bool Table::isInside(float x, float y) 
+{
+	if( xStart_ < x && x < (xStart_ +wholeWidth_)
+		&& yStart_ < y && y < (yStart_ + wholeHeight_)){
+		return true;
+	}
+	return false;
 }

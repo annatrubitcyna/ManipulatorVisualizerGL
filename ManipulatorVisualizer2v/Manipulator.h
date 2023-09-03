@@ -112,10 +112,10 @@ protected:
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> geomJ_; //EXP kAxis, kAxis
 
 	Table angleTable_;
-	/*Table coordsTable_;
-	Table eulerAnglesTable_;
+	Table coordTable_;
+	Table eulerAngleTable_;
 	Table orientationTable_;
-	Table functionTable_;*/
+	Table functionTable_;
 
 	void initializeVectorsAsNull();
 	void setAngles(std::vector<Angle> angles);
@@ -129,8 +129,8 @@ protected:
 	void countGeomJacobian();
 
 	void printAngles();
-	void printAngles2();
 	void printCoords();
+	void printOrientation2();
 	void printOrientation();
 	void printFunctions();
 	void drawOrientationCubes();

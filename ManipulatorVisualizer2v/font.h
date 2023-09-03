@@ -67,5 +67,6 @@ class Table {
 		void mousePress(float x, float y);
 
 		std::vector<std::vector<std::function<void()>>> initNullCallbacks();
+		bool isInside(float x, float y);
 
 };

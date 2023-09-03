@@ -660,152 +660,122 @@ void Manipulator::printAngles()
 	angleTable_.printTable();
 }
 
-void Manipulator::printAngles2() 
-{	
-	//glRasterPos2f(0.3, 0.3);
-	glDisable(GL_DEPTH_TEST);
-	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
-
-	int kSimb = 6; // number of simbols after comma for degrees=kSimb-4, for radians=kSimb-2
-	float xShift = getXShift();
-	float xStart = getXStartT(kAxis_);
-	float yShift = getYShift();
-	float yStart = getYStartT();
-	int kLines = 5;
-
-	//horizontal lines
-	glColor3f(0.493, 0.493, 0.833);
-	for (int i = 0; i < kLines+1; i++) {
-		drawLine(xStart, yStart+i*yShift,
-			     xStart + xShift * (kAxis_+1) -2, yStart + i * yShift);
-	}
-	//vertical lines
-	drawLine(xStart, yStart, xStart,
-		yStart + yShift * kLines);
-	for (int i = 1; i < kAxis_+1; i++) {
-		float x = xStart + xShift * i + 0.5;
-		//vertical lines
-		drawLine(x - 2, yStart,
-			x - 2, yStart + yShift * kLines);
-	}
-	// last vertical line
-	float x = xStart + xShift * (kAxis_ + 1) - 2;
-	drawLine(x, yStart,
-		     x, yStart + yShift * kLines);
-
-	glColor3f(1, 1, 1);
-
-
-	Font->Print(xStart+ xShift/4, yShift, L"¹");
-	Font->Print(xStart + xShift / 4, yShift*2, L"deg");
-	Font->Print(xStart + xShift / 4, yShift * 3, L"rad");
-	Font->Print(xStart + xShift / 4, yShift * 4, L"more");
-	Font->Print(xStart + xShift / 4, yShift * 5, L"less");
-
-	
-	for (int i = 0; i < kAxis_; i++) {
-		float x = xStart + xShift * (i+1)+0.5;
-
-
-		//angle number
-		Font->Print(x+4, yShift, std::to_wstring(i+1).c_str());
-		//angle in degrees
-		std::wstring text = std::to_wstring(toDegrees(angles_[i].get())).substr(0, kSimb);
-		Font->Print(x, yShift*2, text.c_str());
-		//angle in radians
-		text = std::to_wstring(angles_[i].get()).substr(0, kSimb);
-		Font->Print(x, yShift*3, text.c_str());
-
-		Font->Print(x+4, yShift * 4, L"\u2191");
-		Font->Print(x+4, yShift * 5, L"\u2193");
-	}
-
-	glEnable(GL_DEPTH_TEST);
-}
-
 //==========================================================================================================================|
 //													_Coords Printing														|
 //==========================================================================================================================|
-void Manipulator::printCoords() 
+void Manipulator::printCoords()
 {
-	glRasterPos2f(0.3, 0.3);
-	glDisable(GL_DEPTH_TEST);
-	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
+	coordTable_ = Table(Font, kJoints_+2, 3, 6, 0);
+	std::vector<std::wstring> columnTitles = { L"¹" , L"x", L"y", L"z"};
+	std::vector<std::wstring> rowTitles;
+	for (int i = 0; i < kJoints_; i++) rowTitles.push_back(std::to_wstring(i + 1));
+	rowTitles.insert(rowTitles.end(), { L"more", L"less" } );
+	coordTable_.addColumnTitles(columnTitles);
+	coordTable_.addRowTitles(rowTitles, 10);
 
-	int kSimb = 6; // number of simbols after comma for coordinates=kSimb-4
-	float xShift = getXShift();
-	float xStart = getXStartL();
-	float yShift = getYShift();
-	float yStart = getYStartL(kAxis_);
-	int kColumns = 5;
-	int kRows = kJoints_;
-
-	glColor3f(0.493, 0.493, 0.833);
-	//vertical lines
-	drawLine(xStart, yStart, 
-			 xStart, yStart + yShift * (kRows + 3));
-	for (int i = 1; i < kColumns; i++) {
-		drawLine(xStart + i * xShift - xShift/4, yStart, 
-				 xStart + i * xShift - xShift / 4, yStart + yShift * (kRows + 3) );
-	}
-	//horizontal lines
-	for (int i = 0; i < kRows + 4; i++) {
-		drawLine(xStart, yStart + i * yShift,
-			xStart + xShift * (kColumns - 1) - xShift / 4, yStart + i * yShift);
-	}
-	glColor3f(1, 1, 1);
-
-	float y = yStart + yShift - 2;
-	Font->Print(xStart + xShift / 4+1, y, L"¹");
-	Font->Print(xStart + xShift + xShift / 4+0.5, y, L"x");
-	Font->Print(xStart + 2 * xShift + xShift / 4+0.5, y, L"y");
-	Font->Print(xStart + 3 * xShift + xShift / 4+0.5, y, L"z");
-	Font->Print(xStart + 2, yStart + yShift * (kRows + 2) - 2, L"more");
-	Font->Print(xStart + 2, yStart + yShift * (kRows + 3) - 2, L"less");
-
-	
+	float yStart = (200 - coordTable_.yShift_ * (kAxis_ + 1)) / 2 + 20;
+	coordTable_.setPosition(1, yStart);
+	std::vector<std::vector<std::wstring>> data(coordTable_.kRows_);
 	int j = 0;
-	for (int i = 1; i < kAxis_+1; i++) {
-		if (distance(joints_[i-1], joints_[i]) > 0.0001) {
-			float y = yStart + yShift * (j + 2) - 2;
-			//coords number
-			Font->Print(xStart + xShift / 4+1, y, std::to_wstring(j + 1).c_str());
+	for (int i = 1; i < kAxis_ + 1; i++) {
+		if (distance(joints_[i - 1], joints_[i]) > 0.0001) {
 			//x, y, z coordinates
-			std::wstring text = std::to_wstring(joints_[i].x).substr(0, kSimb);
-			Font->Print(xStart + xShift-0.5, y, text.c_str());
-			text = std::to_wstring(joints_[i].y).substr(0, kSimb);
-			Font->Print(xStart + xShift*2-0.5, y, text.c_str());
-			text = std::to_wstring(joints_[i].z).substr(0, kSimb);
-			Font->Print(xStart + xShift*3-0.5, y, text.c_str());
+			std::wstring text = std::to_wstring(joints_[i].x).substr(0, coordTable_.kSymb_);
+			data[j].push_back(text);
+			text = std::to_wstring(joints_[i].y).substr(0, coordTable_.kSymb_);
+			data[j].push_back(text);
+			text = std::to_wstring(joints_[i].z).substr(0, coordTable_.kSymb_);
+			data[j].push_back(text);
 			j += 1;
 		}
 	}
-	//more and less
-	y= yStart + yShift * (kRows + 2)-2;
-	Font->Print(xStart + xShift - 0.5+4, y, L"\u2191");
-	Font->Print(xStart + xShift * 2 - 0.5+4, y, L"\u2191");
-	Font->Print(xStart + xShift * 3 - 0.5+4, y, L"\u2191");
-	y = yStart + yShift * (kRows + 3) - 2;
-	Font->Print(xStart + xShift - 0.5+4, y, L"\u2193");
-	Font->Print(xStart + xShift * 2 - 0.5+4, y, L"\u2193");
-	Font->Print(xStart + xShift * 3 - 0.5+4, y, L"\u2193");
+	for (int i = 0; i < coordTable_.kColumns_; i++) {
+		data[j].push_back(L"\u2191");
+		data[j+1].push_back(L"\u2193");
+	}
+	coordTable_.setData(data);
+
+	std::vector<std::vector<std::function<void()>>> callbacks = coordTable_.initNullCallbacks();
+	float linearSpeed = 3;
+	for (int i = 0; i < coordTable_.kColumns_; i++) {
+		for (j = 1; j >= -1; j -= 2) {
+			std::function<void()> callback;
+			if (i == 0) callback = std::bind(&Manipulator::changePosition, this, Point(j * linearSpeed, 0, 0));
+			if (i == 1) callback = std::bind(&Manipulator::changePosition, this, Point(0, j * linearSpeed, 0));
+			if (i == 2) callback = std::bind(&Manipulator::changePosition, this, Point(0, 0, j * linearSpeed));
+
+			if (j == 1) callbacks[kJoints_][i] = callback;
+			else callbacks[kJoints_ + 1][i] = callback;
+		}
+	}
+	coordTable_.setCallbacks(callbacks);
+
+	coordTable_.printTable();
 
 	//frame around grip coordinates
-	glColor3f(1.0f, 0.0f, 0.0f); //change color to red
-	drawLine(xStart-0.5, yStart+yShift*kRows,
-		     xStart-0.5, yStart + yShift * (kRows + 1));
-	drawLine(xStart + (kColumns-1) * xShift - xShift / 4+0.5, yStart + yShift * kRows,
-		     xStart + (kColumns - 1) * xShift - xShift / 4+0.5, yStart + yShift * (kRows + 1));
-	drawLine(xStart-0.5, yStart+yShift * kRows - 0.5,
-	         xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * kRows-0.5);
-	drawLine(xStart - 0.5, yStart + yShift * (kRows+1)+0.5, 
-			 xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart +yShift * (kRows+1)+0.5);
+	//glColor3f(1.0f, 0.0f, 0.0f); //change color to red
+	//drawLine(xStart - 0.5, yStart + yShift * kRows,
+	//	xStart - 0.5, yStart + yShift * (kRows + 1));
+	//drawLine(xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * kRows,
+	//	xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * (kRows + 1));
+	//drawLine(xStart - 0.5, yStart + yShift * kRows - 0.5,
+	//	xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * kRows - 0.5);
+	//drawLine(xStart - 0.5, yStart + yShift * (kRows + 1) + 0.5,
+	//	xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * (kRows + 1) + 0.5);
 
 	glEnable(GL_DEPTH_TEST);
 }
 //==========================================================================================================================|
 //													_Orientation Printing													|
 //==========================================================================================================================|
+void Manipulator::printOrientation2() {
+	eulerAngleTable_ = Table(Font, 4, 1, 3, 0);
+	eulerAngleTable_.addMainTitle(L"Euler angles");
+
+	std::vector<std::wstring> columnTitles = { L"z1", L"y2", L"z3"};
+	eulerAngleTable_.addColumnTitles(columnTitles);
+
+	eulerAngleTable_.setPosition(coordTable_.xStart_, angleTable_.yStart_);
+
+	std::vector<std::vector<std::wstring>> data(eulerAngleTable_.kRows_);
+	for (int i = 0; i < 3; i++) {
+		std::wstring text = std::to_wstring(toDegrees(EulerAngles_[i].get())).substr(0, eulerAngleTable_.kSymb_);
+		data[0].push_back(text);
+	}
+	eulerAngleTable_.setData(data);
+
+
+
+	orientationTable_ = Table(Font, 5, 3, 6, 0);
+	orientationTable_.addMainTitle(L"Rotation matrix");
+	std::vector<std::wstring> columnTitles2 = { L"x", L"y", L"z"};
+	orientationTable_.addColumnTitles(columnTitles2);
+	float yStart = eulerAngleTable_.yStart_ + eulerAngleTable_.wholeHeight_ + 20;
+	orientationTable_.setPosition(coordTable_.xStart_, yStart);
+
+	std::vector<std::vector<std::wstring>> data2(orientationTable_.kRows_);
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			std::wstring text = std::to_wstring(R_(i, j)).substr(0, orientationTable_.kSymb_);
+			data2[i].push_back(text);
+		}
+		data2[3].push_back({ L"\u21BB" });
+		data2[4].push_back({ L"\u21BA" });
+	}
+	orientationTable_.setData(data2);
+
+	std::vector<std::vector<std::function<void()>>> callbacks = orientationTable_.initNullCallbacks();
+	double angularSpeed = toRadians(1);
+	for (int i = 0; i < orientationTable_.kColumns_; i++) {
+		std::function<void()> callback = std::bind(&Manipulator::changeOrientation, this, i + 1, angularSpeed);
+		callbacks[3][i] = callback;
+		callback = std::bind(&Manipulator::changeOrientation, this, i + 1, -angularSpeed);
+		callbacks[4][i] = callback;
+	}
+	orientationTable_.setCallbacks(callbacks);
+
+	orientationTable_.printTable();
+}
 void Manipulator::printOrientation() {
 	glRasterPos2f(0.3, 0.3);
 	glDisable(GL_DEPTH_TEST);
@@ -1105,9 +1075,13 @@ void Manipulator::printInfo() {
 //==========================================================================================================================|
 int Manipulator::changeByMouse(float x, float y) {
 	isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-	if(angleTable_.xStart_<x && x< (angleTable_.xStart_+ angleTable_.wholeWidth_)
-		&& angleTable_.yStart_ < y && y < (angleTable_.yStart_ + angleTable_.wholeHeight_)){
+
+	if(angleTable_.isInside(x, y)){
 		angleTable_.mousePress(x, y);
+	}
+	
+	if (coordTable_.isInside(x, y)) {
+		coordTable_.mousePress(x, y);
 	}
 
 	////angles
