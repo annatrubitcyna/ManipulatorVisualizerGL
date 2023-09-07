@@ -69,7 +69,8 @@ enum ForwardKinematicsMethod {
 
 enum Error {
 	OK,               //no error 
-	OUT_OF_WORKSPACE  //can't solve inverse kinematics problem 
+	OUT_OF_WORKSPACE,  //can't solve inverse kinematics problem 
+	JACOBIAN_DEGENERATION
 };
 
 //class Tables {
@@ -109,13 +110,14 @@ protected:
 	Error error_;
 	
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> J_; // DH kAxis, kAxis
-	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> geomJ_; //EXP kAxis, kAxis
+	Eigen::Matrix<double, 6, Eigen::Dynamic> geomJ_; //EXP kAxis, kAxis
 
 	Table angleTable_;
 	Table coordTable_;
 	Table eulerAngleTable_;
 	Table orientationTable_;
 	Table functionTable_;
+	bool areTablesInit;
 
 	void initializeVectorsAsNull();
 	void setAngles(std::vector<Angle> angles);
@@ -128,16 +130,31 @@ protected:
 	void countJacobian();
 	void countGeomJacobian();
 
+	void initAngleTable();
+	void initCoordTable();
+	void initOrientationTables();
+	void initFunctionTable();
+	void initTables();
+
 	void printAngles();
 	void printCoords();
-	void printOrientation2();
 	void printOrientation();
 	void printFunctions();
+	void checkStartingPosition(std::vector<Angle> angles);
 	void drawOrientationCubes();
+
 	bool isCubePressed;
-	std::vector<int> isChangedByMouse_; //1- yes or not, 2,3- x y mouse coords 
+	std::vector<int> isChangedByMouse_; //1 or 0- yes or not; x y mouse coords 
+	int isGoWithSpeed_; //1-goWithSpeed, 2-goWithAngularSpeed; 
+	Point targetCoords_;
+	float speed_;
+	double prTime_;
 
 	void goByGCODE(std::string fileName);
+	void changeGoWithSpeed(Point targetCoords, float speed);
+	void goWithSpeed(Point targetCoords, float speed);
+	void changeGoWithAngularSpeed(Point targetCoords, float speed);
+	void goWithAngularSpeed(Point targetCoords, float speed);
 public:
 	Manipulator() {};
 	Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh);
@@ -151,6 +168,7 @@ public:
 	void setPosition(Point coords);
 	void setAngles(std::vector<double> angles);
 	void setOrientation(Eigen::Matrix3d R);
+	void goToStartingPosition();
 
 	void drawManipulator();
 	void drawCoordSystem(int i, double axisLen);
@@ -194,7 +212,6 @@ class SixAxisStandardManipulator : public Manipulator
 protected:
 	std::vector<double> l_; //linkLength
 	void inverseKinematics();
-	Eigen::Matrix3d getR3();
 	ThreeAxisRrrManipulator firstThreeAxis;
 public:
 	SixAxisStandardManipulator(ForwardKinematicsMethod method, std::vector<double> linkLength);

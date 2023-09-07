@@ -13,9 +13,9 @@
 #include <ftgl/FTGLTextureFont.h>
 class CFont{
 	public:
-		CFont(const char* ttf, int FSize, int FDepth);
-		CFont();
-		~CFont();
+		CFont(std::string ttf = "C:/Windows/Fonts/arial.ttf", int FSize=24, int FDepth=32);
+		//CFont();
+		//~CFont();
 		FTFont* Font;
 		//float Advance(const wchar_t* string);
 		void Print(float x, float y, const wchar_t* text);
@@ -28,7 +28,7 @@ void drawLine(float x1, float y1, float x2, float y2);
 class Table {
 	public:
 		CFont* font_;
-
+		CFont* mathFont_;
 		float xStart_;
 		float yStart_;
 		float xShift_;

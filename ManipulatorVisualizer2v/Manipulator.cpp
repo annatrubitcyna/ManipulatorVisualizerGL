@@ -100,6 +100,9 @@ Point operator-(Point p1, Point p2)
 {
 	return Point(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
 };
+Point operator*(double k, Point p) {
+	return Point(k * p.x, k * p.y, k * p.z);
+}
 
 Eigen::Vector3d Point::toVector()
 {
@@ -150,6 +153,10 @@ Angle operator-(Angle a1, Angle a2)
 	return Angle(a1.get() - a2.get());
 };
 
+Angle operator*(double k, Angle a) {
+	return Angle(k * a.get());
+}
+
 //==========================================================================================================================|
 //																															|
 //													_MANIPULATOR															|
@@ -169,6 +176,24 @@ void Manipulator::initializeVectorsAsNull() {
 		if (i < 3)	isChangedByMouse_.push_back(0);
 	}
 	isCubePressed = false;
+	areTablesInit = false;
+	isGoWithSpeed_ = 0;
+	targetCoords_ = Point(0, 0, 0);
+	speed_ = 0;
+	prTime_ = clock();
+
+	std::vector<double> J1(kAxis_);
+	for (int i = 0; i < kAxis_; i++) J1[i] = 0;
+	std::vector<std::vector<double>> nullJ;
+	for (int i = 0; i < 6; i++) {
+		nullJ.push_back(J1);
+	}
+	J_.resize(6, kAxis_);
+	for (int i = 0; i < 6; i++) {
+		for (int j = 0; j < kAxis_; j++) {
+			J_(i, j) = 0.0;
+		}
+	}
 }
 
 Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh)
@@ -180,7 +205,7 @@ Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> a
 	d_ = d;
 	dTh_ = dTh;
 	initializeVectorsAsNull();
-	J_.resize(kAxis_, kAxis_);
+	//J_.resize(kAxis_, kAxis_);
 	setAngles(angles_);
 	kJoints_ = 0;
 	for (int i = 0; i < kAxis_; i++) {
@@ -210,12 +235,28 @@ Manipulator::Manipulator(int kAxis, std::vector<Eigen::Vector<double, 6>> unitTw
 //													_TRANSFER FUNCTIONS														|
 //																															|
 //==========================================================================================================================|
-
+void Manipulator::checkStartingPosition(std::vector<Angle> angles) {
+	//+ in startingPosition
+	bool areAnglesNull = true;
+	for (int i = 0; i < kAxis_; i++) { //start position
+		float a = abs(angles[i].get());
+		if (a > 0.000001) {
+			areAnglesNull = false;
+		}
+	}
+	if (functionTable_.data_.size() != 0) {
+		if (areAnglesNull) {
+			functionTable_.data_[1][0] = L"+";
+		}
+		else functionTable_.data_[1][0] = L"-";
+	}
+}
 void Manipulator::changeAngle(int i, double dAngle) 
 {
 	if (i <= kAxis_ && i>0) {
 		angles_[i-1] = Angle(angles_[i-1] + dAngle);
 		forwardKinematics();
+		checkStartingPosition(angles_);
 	}
 }
 
@@ -232,21 +273,16 @@ void Manipulator::setAngles(std::vector<Angle> angles)
 		}
 	}
 	forwardKinematics();
+	checkStartingPosition(angles);
 }
 
 void Manipulator::setAngles(std::vector<double> angles) 
 {
-	if (forwardKinematicsMethod_ == DH) {
-		for (int i = 0; i < kAxis_; i++) {
-			angles_[i] = Angle(angles[i]+dTh_[i]);
-		}
+	std::vector<Angle> anglesA;
+	for (int i = 0; i < kAxis_; i++) {
+		anglesA.push_back(Angle(angles[i]));
 	}
-	else {
-		for (int i = 0; i < angles.size(); i++) {
-			angles_[i] = Angle(angles[i]);
-		}
-	}
-	forwardKinematics();
+	setAngles(anglesA);	
 }
 
 void Manipulator::changePosition(Point dCoords)
@@ -266,24 +302,27 @@ void Manipulator::setPosition(Point coords, Eigen::Matrix3d R)
 
 void Manipulator::setPosition(Point coords)
 {
-	setPosition(coords, Eigen::Matrix3d::Identity());
+	setPosition(coords, R_);
 }
 
-Eigen::Matrix3d getStandardRotMatrixX(Angle angle) {
+Eigen::Matrix3d getStandardRotMatrixX(Angle angle) 
+{
 	float an = angle.get();
 	Eigen::Matrix3d R { {1, 0, 0},
 						{0, cos(an), -sin(an)},
 						{0, sin(an), cos(an)} };
 	return R;
 }
-Eigen::Matrix3d getStandardRotMatrixY(Angle angle) {
+Eigen::Matrix3d getStandardRotMatrixY(Angle angle) 
+{
 	float an = angle.get();
 	Eigen::Matrix3d R { {cos(an), 0, sin(an)},
 						{0, 1, 0},
 						{-sin(an), 0, cos(an)} };
 	return R;
 }
-Eigen::Matrix3d getStandardRotMatrixZ(Angle angle) {
+Eigen::Matrix3d getStandardRotMatrixZ(Angle angle) 
+{
 	float an = angle.get();
 	Eigen::Matrix3d R { {cos(an),-sin(an),0},
 						{sin(an), cos(an), 0},
@@ -291,7 +330,8 @@ Eigen::Matrix3d getStandardRotMatrixZ(Angle angle) {
 	return R;
 }
 
-void Manipulator::changeOrientation(int axis, float dAngle) {
+void Manipulator::changeOrientation(int axis, float dAngle) 
+{
 	Eigen::Matrix3d R=R_;
 	if (axis == 1) { //x-axis
 		R = R_ * getStandardRotMatrixX(Angle(dAngle));
@@ -306,8 +346,17 @@ void Manipulator::changeOrientation(int axis, float dAngle) {
 }
 
 
-void Manipulator::setOrientation(Eigen::Matrix3d R) {
+void Manipulator::setOrientation(Eigen::Matrix3d R) 
+{
 	setPosition(coords_, R);
+}
+
+void Manipulator::goToStartingPosition() 
+{
+	for (int i = 0; i < kAxis_; i++) { //start position
+		angles_[i] = Angle(0);
+	}
+	setAngles(angles_);
 }
 
 //==========================================================================================================================|
@@ -357,8 +406,8 @@ void Manipulator::forwardKinematicsDH()
 
 void Manipulator::countJacobian() 
 {
-	for (int i = 1; i < kAxis_+1; i++) {
-		Eigen::Matrix3d Rim1 = getR(H_[i - 1]);
+	for (int i = 0; i < kAxis_; i++) {
+		Eigen::Matrix3d Rim1 = getR(H_[i]);
 		Eigen::Vector3d z (0, 0, 1);
 		Eigen::Vector3d zi0 = Rim1*z;
 		Eigen::Vector3d pki = (coords_ - joints_[i]).toVector();
@@ -491,8 +540,24 @@ void Manipulator::drawManipulator()
 	}
 	
 	//change while mouse is pressed
-	if (isChangedByMouse_[0] == 1)
+	if (isChangedByMouse_[0] == 1) {
 		changeByMouse(isChangedByMouse_[1], isChangedByMouse_[2]);
+	}
+	if (isGoWithSpeed_ == 1) {
+		if (functionTable_.data_.size()!=0) functionTable_.data_[3][0] = L"+";
+		goWithSpeed(targetCoords_, speed_);
+	}
+	else if (isGoWithSpeed_ == 2) {
+		if (functionTable_.data_.size() != 0) functionTable_.data_[4][0] = L"+";
+		goWithAngularSpeed(targetCoords_, speed_);
+	}
+	else {
+		if (functionTable_.data_.size() != 0) {
+			functionTable_.data_[3][0] = L"-";
+			functionTable_.data_[4][0] = L"-";
+		}
+	}
+	prTime_ = clock();
 }
 
 float getAxisWidth() 
@@ -627,54 +692,79 @@ float getXShiftR2() { //1 column
 //==========================================================================================================================|
 //													_Angles Printing														|
 //==========================================================================================================================|
-
-void Manipulator::printAngles()
+void Manipulator::initAngleTable() 
 {
-	angleTable_=Table(Font, 4, kAxis_, 6, 0);
-	std::vector<std::wstring> columnTitles = {L"№"};
+	angleTable_ = Table(Font, 4, kAxis_, 6, 0);
+	std::vector<std::wstring> columnTitles = { L"№" };
 	for (int i = 0; i < kAxis_; i++) columnTitles.push_back(std::to_wstring(i + 1));
 	angleTable_.addColumnTitles(columnTitles);
-	std::vector<std::wstring> rowTitles = { L"deg", L"rad", L"more", L"less"};
+	std::vector<std::wstring> rowTitles = { L"deg", L"rad", L"more", L"less" };
 	angleTable_.addRowTitles(rowTitles, 10);
 	float xStart = (200 - angleTable_.wholeWidth_) / 2;
 	angleTable_.setPosition(xStart, 2);
-	std::vector<std::vector<std::wstring>> data(angleTable_.kRows_);
-	for (int i = 0; i < kAxis_; i++) {
-		data[0].push_back(std::to_wstring(toDegrees(angles_[i].get())).substr(0, angleTable_.kSymb_));
-		data[1].push_back(std::to_wstring(angles_[i].get()).substr(0, angleTable_.kSymb_)); //angle in radians
-		data[2].push_back(L"\u2191");
-		data[3].push_back(L"\u2193");
-	}
-	angleTable_.setData(data);
 
-	std::vector<std::vector<std::function<void()>>> callbacks=angleTable_.initNullCallbacks();
+	std::vector<std::vector<std::function<void()>>> callbacks = angleTable_.initNullCallbacks();
 	double angularSpeed = toRadians(1);
 	for (int i = 0; i < angleTable_.kColumns_; i++) {
-		std::function<void()> callback = std::bind(&Manipulator::changeAngle, this, i+1, angularSpeed);
+		std::function<void()> callback = std::bind(&Manipulator::changeAngle, this, i + 1, angularSpeed);
 		callbacks[2][i] = callback;
 		callback = std::bind(&Manipulator::changeAngle, this, i + 1, -angularSpeed);
 		callbacks[3][i] = callback;
 	}
 	angleTable_.setCallbacks(callbacks);
-
+}
+void Manipulator::printAngles()
+{
+	std::vector<std::vector<std::wstring>> data(angleTable_.kRows_);
+	for (int i = 0; i < kAxis_; i++) { 
+		if (forwardKinematicsMethod_ == DH) {  //subtract dTh 
+			data[0].push_back(std::to_wstring(toDegrees(Angle(angles_[i].get() - dTh_[i]).get())).substr(0, angleTable_.kSymb_));
+			data[1].push_back(std::to_wstring(Angle(angles_[i].get() - dTh_[i]).get()).substr(0, angleTable_.kSymb_)); //angle in radians	
+		}
+		else {
+			data[0].push_back(std::to_wstring(toDegrees(angles_[i].get())).substr(0, angleTable_.kSymb_));
+			data[1].push_back(std::to_wstring(angles_[i].get()).substr(0, angleTable_.kSymb_)); //angle in radians
+		}
+		data[2].push_back(L"\u2191");
+		data[3].push_back(L"\u2193");
+	}
+	angleTable_.setData(data);
 	angleTable_.printTable();
 }
 
 //==========================================================================================================================|
 //													_Coords Printing														|
 //==========================================================================================================================|
-void Manipulator::printCoords()
+void Manipulator::initCoordTable() 
 {
-	coordTable_ = Table(Font, kJoints_+2, 3, 6, 0);
-	std::vector<std::wstring> columnTitles = { L"№" , L"x", L"y", L"z"};
+	coordTable_ = Table(Font, kJoints_ + 2, 3, 6, 0);
+	std::vector<std::wstring> columnTitles = { L"№" , L"x", L"y", L"z" };
 	std::vector<std::wstring> rowTitles;
 	for (int i = 0; i < kJoints_; i++) rowTitles.push_back(std::to_wstring(i + 1));
-	rowTitles.insert(rowTitles.end(), { L"more", L"less" } );
+	rowTitles.insert(rowTitles.end(), { L"more", L"less" });
 	coordTable_.addColumnTitles(columnTitles);
 	coordTable_.addRowTitles(rowTitles, 10);
-
 	float yStart = (200 - coordTable_.yShift_ * (kAxis_ + 1)) / 2 + 20;
 	coordTable_.setPosition(1, yStart);
+
+	std::vector<std::vector<std::function<void()>>> callbacks = coordTable_.initNullCallbacks();
+	float linearSpeed = 3;
+	for (int i = 0; i < coordTable_.kColumns_; i++) {
+		for (int j = 1; j >= -1; j -= 2) {
+			std::function<void()> callback;
+			if (i == 0) callback = std::bind(&Manipulator::changePosition, this, Point(j * linearSpeed, 0, 0));
+			if (i == 1) callback = std::bind(&Manipulator::changePosition, this, Point(0, j * linearSpeed, 0));
+			if (i == 2) callback = std::bind(&Manipulator::changePosition, this, Point(0, 0, j * linearSpeed));
+
+			if (j == 1) callbacks[kJoints_][i] = callback;
+			else callbacks[kJoints_ + 1][i] = callback;
+		}
+	}
+	coordTable_.setCallbacks(callbacks);
+}
+
+void Manipulator::printCoords()
+{
 	std::vector<std::vector<std::wstring>> data(coordTable_.kRows_);
 	int j = 0;
 	for (int i = 1; i < kAxis_ + 1; i++) {
@@ -694,22 +784,6 @@ void Manipulator::printCoords()
 		data[j+1].push_back(L"\u2193");
 	}
 	coordTable_.setData(data);
-
-	std::vector<std::vector<std::function<void()>>> callbacks = coordTable_.initNullCallbacks();
-	float linearSpeed = 3;
-	for (int i = 0; i < coordTable_.kColumns_; i++) {
-		for (j = 1; j >= -1; j -= 2) {
-			std::function<void()> callback;
-			if (i == 0) callback = std::bind(&Manipulator::changePosition, this, Point(j * linearSpeed, 0, 0));
-			if (i == 1) callback = std::bind(&Manipulator::changePosition, this, Point(0, j * linearSpeed, 0));
-			if (i == 2) callback = std::bind(&Manipulator::changePosition, this, Point(0, 0, j * linearSpeed));
-
-			if (j == 1) callbacks[kJoints_][i] = callback;
-			else callbacks[kJoints_ + 1][i] = callback;
-		}
-	}
-	coordTable_.setCallbacks(callbacks);
-
 	coordTable_.printTable();
 
 	//frame around grip coordinates
@@ -723,35 +797,45 @@ void Manipulator::printCoords()
 	//drawLine(xStart - 0.5, yStart + yShift * (kRows + 1) + 0.5,
 	//	xStart + (kColumns - 1) * xShift - xShift / 4 + 0.5, yStart + yShift * (kRows + 1) + 0.5);
 
-	glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_DEPTH_TEST);
 }
 //==========================================================================================================================|
 //													_Orientation Printing													|
 //==========================================================================================================================|
-void Manipulator::printOrientation2() {
-	eulerAngleTable_ = Table(Font, 4, 1, 3, 0);
+void Manipulator::initOrientationTables() 
+{
+	eulerAngleTable_ = Table(Font, 1, 3, 6, 0);
 	eulerAngleTable_.addMainTitle(L"Euler angles");
-
-	std::vector<std::wstring> columnTitles = { L"z1", L"y2", L"z3"};
+	std::vector<std::wstring> columnTitles = { L"z1", L"y2", L"z3" };
 	eulerAngleTable_.addColumnTitles(columnTitles);
-
 	eulerAngleTable_.setPosition(coordTable_.xStart_, angleTable_.yStart_);
 
+	orientationTable_ = Table(Font, 5, 3, 6, 0);
+	orientationTable_.addMainTitle(L"Rotation matrix");
+	std::vector<std::wstring> columnTitles2 = { L"x", L"y", L"z" };
+	orientationTable_.addColumnTitles(columnTitles2);
+	float yStart = eulerAngleTable_.yStart_ + eulerAngleTable_.wholeHeight_ + 10;
+	orientationTable_.setPosition(coordTable_.xStart_, yStart);
+
+	std::vector<std::vector<std::function<void()>>> callbacks = orientationTable_.initNullCallbacks();
+	double angularSpeed = toRadians(1);
+	for (int i = 0; i < orientationTable_.kColumns_; i++) {
+		std::function<void()> callback = std::bind(&Manipulator::changeOrientation, this, i + 1, angularSpeed);
+		callbacks[3][i] = callback;
+		callback = std::bind(&Manipulator::changeOrientation, this, i + 1, -angularSpeed);
+		callbacks[4][i] = callback;
+	}
+	orientationTable_.setCallbacks(callbacks);
+}
+void Manipulator::printOrientation() 
+{
 	std::vector<std::vector<std::wstring>> data(eulerAngleTable_.kRows_);
 	for (int i = 0; i < 3; i++) {
 		std::wstring text = std::to_wstring(toDegrees(EulerAngles_[i].get())).substr(0, eulerAngleTable_.kSymb_);
 		data[0].push_back(text);
 	}
 	eulerAngleTable_.setData(data);
-
-
-
-	orientationTable_ = Table(Font, 5, 3, 6, 0);
-	orientationTable_.addMainTitle(L"Rotation matrix");
-	std::vector<std::wstring> columnTitles2 = { L"x", L"y", L"z"};
-	orientationTable_.addColumnTitles(columnTitles2);
-	float yStart = eulerAngleTable_.yStart_ + eulerAngleTable_.wholeHeight_ + 20;
-	orientationTable_.setPosition(coordTable_.xStart_, yStart);
+	eulerAngleTable_.printTable();
 
 	std::vector<std::vector<std::wstring>> data2(orientationTable_.kRows_);
 	for (int i = 0; i < 3; i++) {
@@ -763,94 +847,7 @@ void Manipulator::printOrientation2() {
 		data2[4].push_back({ L"\u21BA" });
 	}
 	orientationTable_.setData(data2);
-
-	std::vector<std::vector<std::function<void()>>> callbacks = orientationTable_.initNullCallbacks();
-	double angularSpeed = toRadians(1);
-	for (int i = 0; i < orientationTable_.kColumns_; i++) {
-		std::function<void()> callback = std::bind(&Manipulator::changeOrientation, this, i + 1, angularSpeed);
-		callbacks[3][i] = callback;
-		callback = std::bind(&Manipulator::changeOrientation, this, i + 1, -angularSpeed);
-		callbacks[4][i] = callback;
-	}
-	orientationTable_.setCallbacks(callbacks);
-
 	orientationTable_.printTable();
-}
-void Manipulator::printOrientation() {
-	glRasterPos2f(0.3, 0.3);
-	glDisable(GL_DEPTH_TEST);
-	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
-
-	int kSimb = 6; // number of simbols after comma for coordinates=kSimb-4
-	float xShift = getXShift();
-	float xStart = getXStartL();
-	float yShift = getYShift();
-	float yStart = getYStartT();
-	int kColumns = 3;
-	int kARows = 3; //3-euler angles, 1-empty row, 5-R matrix 
-	int kERows = 1;
-	int kRRows = 7;
-	int kRows = kARows + kERows + kRRows;
-
-	glColor3f(0.493, 0.493, 0.833);
-	//vertical lines
-	for (int i = 0; i < kColumns+1; i++) {
-		if (i == 0 | i == kColumns) {
-			drawLine(xStart + i * xShift, yStart,
-				xStart + i * xShift, yStart + yShift * kARows);
-			drawLine(xStart + i * xShift, yStart + yShift * (kARows + kERows),
-				xStart + i * xShift, yStart + yShift * (kRows));
-		}
-		else {
-			drawLine(xStart + i * xShift, yStart+yShift,
-				xStart + i * xShift, yStart + yShift * kARows);
-			drawLine(xStart + i * xShift, yStart + yShift * (kARows + kERows+1),
-				xStart + i * xShift, yStart + yShift * (kRows));
-		}
-	}
-	//horizontal lines
-	for (int i = 0; i < kRows + 1; i++) {
-		drawLine(xStart, yStart + i * yShift,
-			xStart + xShift * (kColumns), yStart + i * yShift);
-	}
-
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-	float y = yStart + yShift - 2;
-	Font->Print(xStart + xShift  -2, y, L"Euler angles");
-	y = yStart + 2 * yShift - 2;
-	Font->Print(xStart  + xShift / 3 + 1.5, y, L"z1");
-	Font->Print(xStart + xShift + xShift / 3 + 1.5, y, L"y2");
-	Font->Print(xStart + 2 * xShift + xShift / 3 + 1.5, y, L"z3");
-	y= yStart + (kARows + kERows + 1) * yShift - 2;
-	Font->Print(xStart + +xShift / 2 + 3, y, L"Rotation matrix");
-
-	y = yStart + (kARows + kERows + 2) * yShift - 2;
-	glColor3f(getColor((COLOR)0)[0], getColor((COLOR)0)[1], getColor((COLOR)0)[2]);
-	Font->Print(xStart + xShift / 3 + 2, y, L"x");
-	glColor3f(getColor((COLOR)1)[0], getColor((COLOR)1)[1], getColor((COLOR)1)[2]);
-	Font->Print(xStart +  xShift + xShift / 3 + 2, y, L"y");
-	glColor3f(getColor((COLOR)2)[0], getColor((COLOR)2)[1], getColor((COLOR)2)[2]);
-	Font->Print(xStart + 2 * xShift + xShift / 3 + 2, y, L"z");
-	glColor3f(1.0f, 1.0f, 1.0f);
-
-	
-	y = yStart + 3 * yShift - 2;
-	for (int i = 0; i < 3; i++) {
-		std::wstring text = std::to_wstring(toDegrees(EulerAngles_[i].get())).substr(0, kSimb);
-		Font->Print(xStart + xShift*i + xShift/4 - 0.5, y, text.c_str());
-	}
-	for (int j = 0; j < 3; j++) {
-		float x = xStart + xShift * j + xShift / 4 - 0.5;
-		for (int i = 0; i < 3; i++) {
-			y = yStart + yShift * (kARows + kERows + i + 3) - 2;
-			
-			std::wstring text = std::to_wstring(R_(i, j)).substr(0, kSimb);
-			Font->Print(x, y, text.c_str());
-		}
-		FontM->Print(x+3, yStart + yShift * (kARows + kERows + 3 + 3)-2, L"\u21BB");
-		FontM->Print(x+3, yStart + yShift * (kARows + kERows + 4 + 3)-2, L"\u21BA");
-	}
 }
 //==========================================================================================================================|
 //													_Function Printing													|
@@ -861,49 +858,40 @@ std::wstring Error_to_string(Error error)
 	{
 	case OK:   return L"OK";
 	case OUT_OF_WORKSPACE:   return L"OUT_OF_SPACE";
+	case JACOBIAN_DEGENERATION:   return L"JACOBIAN_DEGENERATION";
 	}
 }
-void Manipulator::printFunctions()
+void Manipulator::initFunctionTable() 
 {
-	glRasterPos2f(0.3, 0.3);
-	glDisable(GL_DEPTH_TEST);
-	glColor3f(1.0f, 1.0f, 1.0f);   // set color to white
-
-	float xShift1 = getXShiftR1();
-	float xShift2 = getXShiftR2();
-	float xStart = getXStartR();
-	float yShift = getYShift();
-	float yStart = getYStartR();
-	int kRows = 7;
-
-	//vertical lines
-	glColor3f(0.493, 0.493, 0.833);
-	float yEnd = yStart + yShift * kRows;
-	drawLine(xStart, yStart,
-			 xStart, yEnd);
-	drawLine(xStart+xShift1, yStart,
-			 xStart+xShift1, yEnd);
-	drawLine(xStart + xShift1+xShift2, yStart,
-		xStart + xShift1+xShift2, yEnd);
-	//horizontal 
-	for (int i = 0; i < kRows + 1; i++) {
-		drawLine(xStart, yStart + i * yShift,
-			xStart + xShift1 + xShift2, yStart + i * yShift);
-	}
-	glColor3f(1, 1, 1);
-
+	functionTable_ = Table(Font, 7, 1, 1, 5);
 	std::wstring text = Error_to_string(error_);
-	Font->Print(xStart + 2, yStart + yShift-2, text.c_str());
-	Font->Print(xStart + 2, yStart + 2*yShift - 2, L"starting position");
-	Font->Print(xStart + 2, yStart + 3 * yShift - 2, L"mouse control");
-	Font->Print(xStart + 2, yStart + 4 * yShift - 2, L"go with speed");
-	Font->Print(xStart + 2, yStart + 5 * yShift - 2, L"go with grip speed");
-	Font->Print(xStart + 2, yStart + 6 * yShift - 2, L"go with grip speed T");
-	Font->Print(xStart + 2, yStart + 7 * yShift - 2, L"go by GCODE's");
-	//view: pictures from Solidworks 
-	// f (f, b), (r, l), (t, b) 
-	// * (*, x), (->, <-), (|, |)
+	std::vector<std::wstring> rowTitles = { text.c_str(), L"starting_position", L"mouse control", L"go with speed",
+											L"go with angular speed", L"go with grip speed T", L"go by GCODE's" };
+	functionTable_.addRowTitles(rowTitles, 30);
+	float xStart = 200 - functionTable_.wholeWidth_ - 3;
+	float yStart = (200 - functionTable_.wholeHeight_) / 2;
+	functionTable_.setPosition(xStart, yStart);
+	std::vector<std::vector<std::wstring>> data(functionTable_.kRows_);
+	for (int i = 0; i < functionTable_.kRows_; i++) {
+		data[i].push_back(L"");
+	}
+	functionTable_.setData(data);
 
+	std::vector<std::vector<std::function<void()>>> callbacks = functionTable_.initNullCallbacks();
+	std::function<void()> callback = std::bind(&Manipulator::goToStartingPosition, this);
+	callbacks[1][0] = callback;
+	callback = std::bind(&Manipulator::goByGCODE, this, "AbsoluteCube1.gcode");
+	callbacks[6][0] = callback;
+	callback = std::bind(&Manipulator::changeGoWithSpeed, this, Point(150, -100, 50), 20);
+	callbacks[3][0] = callback;
+	callback = std::bind(&Manipulator::changeGoWithAngularSpeed, this, Point(200, 0, 100), 20);
+	callbacks[4][0] = callback;
+	functionTable_.setCallbacks(callbacks);
+}
+void Manipulator::printFunctions() 
+{
+	functionTable_.rowTitles_[0]= Error_to_string(error_).c_str();
+	functionTable_.printTable();
 }
 
 //==========================================================================================================================|
@@ -919,13 +907,6 @@ enum CubeOr {
 	BOTTOM
 };
 void drawCube(float ltCornerX, float ltCornerY, float a, float shift, int i) {
-	//glColor3f(1.0f, 0.0f, 1.0f);     // Magenta
-	//glVertex3f(1.0f, 1.0f, -1.0f);
-	//glVertex3f(1.0f, 1.0f, 1.0f);
-	//glVertex3f(1.0f, -1.0f, 1.0f);
-	//glVertex3f(1.0f, -1.0f, -1.0f);
-	//glEnd();  // End of drawing color-cube
-
 	float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
 
 	//back
@@ -1039,9 +1020,6 @@ void drawCubesPanel() {
 	}
 	drawCube(xStart + (ax + shift + between)  + 5, yStart + height / 2 - (a + shift) / 2 - (a + shift + between), a, shift, TOP);
 	drawCube(xStart + (ax + shift + between) + 5, yStart + height / 2 - (a + shift) / 2 + (a + shift + between), a, shift, BOTTOM);
-
-	
-
 }
 void Manipulator::drawOrientationCubes() {
 	glPushMatrix(); //to print more than one text
@@ -1061,7 +1039,17 @@ void Manipulator::drawOrientationCubes() {
 		drawCubesPanel();
 	}
 }
+void Manipulator::initTables() {
+	initAngleTable();
+	initCoordTable();
+	initOrientationTables();
+	initFunctionTable();
+}
 void Manipulator::printInfo() {
+	if (!areTablesInit) {
+		initTables();
+		areTablesInit = true;
+	}
 	printAngles();
 	printCoords();
 	printOrientation();
@@ -1079,113 +1067,48 @@ int Manipulator::changeByMouse(float x, float y) {
 	if(angleTable_.isInside(x, y)){
 		angleTable_.mousePress(x, y);
 	}
-	
 	if (coordTable_.isInside(x, y)) {
 		coordTable_.mousePress(x, y);
 	}
+	if (orientationTable_.isInside(x, y)) {
+		orientationTable_.mousePress(x, y);
+	}
+	if (functionTable_.isInside(x, y)) {
+		functionTable_.mousePress(x, y);
+	}
+	//cubePanel
+	float xStart = 13;
+	float yStart = 150;
+	float width = 35;
+	float height = 40;
+	float a = 7;
+	float shift = 3;
+	float between = 2;
+	float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
+	if (isCubePressed) {
+		int i = 0;
+		if (yStart + height / 2 - (a + shift) / 2 < y && y < yStart + height / 2 - (a + shift) / 2 + a + shift) {
+			i = floor((x - (xStart - shift+5)) / (ax + shift + between)) + 1;
+		}
+		if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 - (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 - (a + shift - between) + shift + a) {
+			i = 5;
+		}
+		if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 + (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 + (a + shift - between) + shift + a) {
+			i = 6;
+		}
+		if (i != 0) {
+			return i;
+		}
+	}
 
-	////angles
-	//float angularSpeed = toRadians(1);
-	//float xShift = getXShift();
-	//float xStart = getXStartT(kAxis_);
-	//float yShift = getYShift();
-	//float yStart = getYStartT();
-	////x = xStart + xShift * (i+1)+0.5-2;
-	//int i = floor((x - xStart - 0.5 + 2) / xShift);
-	//if (0 < i && i < kAxis_ + 1) { //angles
-	//	if (yStart + yShift * 3 < y && y < yStart + yShift * 4) {
-	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-	//		changeAngle(i, angularSpeed);
-	//	}
-	//	else if (yStart + yShift * 4 < y && y < yStart + yShift * 5) {
-	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-	//		changeAngle(i, -angularSpeed);
-	//	}
-	//}
-	////coords
-	//float linearSpeed = 3;
-	//xShift = getXShift();
-	//xStart = getXStartL();
-	//yShift = getYShift();
-	//yStart = getYStartL(kAxis_);
-	////xStart + i * xShift - xShift / 4
-	//i = floor((x - xStart + xShift / 4) / xShift);
-	//int sign = 0;
-	//if (yStart + yShift * (kJoints_ + 1) < y && y < yStart + yShift * (kJoints_ + 2)) sign = 1;
-	//if (yStart + yShift * (kJoints_ + 2) < y && y < yStart + yShift * (kJoints_ + 3)) sign = -1;
-	//Point dCoords = Point(0, 0, 0);
-	//if (i == 1) dCoords.x = sign * linearSpeed;
-	//if (i == 2) dCoords.y = sign * linearSpeed;
-	//if (i == 3) dCoords.z = sign * linearSpeed;
-	//if (distance(dCoords, Point(0, 0, 0)) > 0.0001) {
-	//	isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-	//	changePosition(dCoords);
-	//}
-
-	////orientation
-	//xShift = getXShift();
-	//xStart = getXStartL();
-	//yShift = getYShift();
-	//yStart = getYStartT();
-	//int kRows = 11;
-	//float angularOrientSpeed = toRadians(1);
-	//i = floor((x - xStart) / xShift) + 1;
-	//if (0 < i && i < 4) {
-	//	if (yStart + (kRows - 2) * yShift < y && y < yStart + (kRows - 1) * yShift) {
-	//		changeOrientation(i, angularOrientSpeed);
-	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-	//	}
-	//	if (yStart + (kRows - 1) * yShift < y && y < yStart + (kRows)*yShift) {
-	//		changeOrientation(i, -angularOrientSpeed);
-	//		isChangedByMouse_[0] = 1; isChangedByMouse_[1] = x; isChangedByMouse_[2] = y;
-	//	}
-	//}
-
-	////functions
-	//if (getXStartR() < x && x < getXStartR() + getXShiftR1()) {
-	//	if (getYStartR() + getYShift() < y && y < getYStartR() + 2 * getYShift()) {
-	//		for (int i = 0; i < kAxis_; i++) { //start position
-	//			angles_[i] = Angle(0);
-	//		}
-	//		setAngles(angles_);
-	//	}
-	//	if (getYStartR() + 6 * getYShift() < y && y < getYStartR() + 7 * getYShift()) { // go by GCODE
-	//		goByGCODE("AbsoluteCube1.gcode");
-	//	}
-	//}
-	////cubePanel
-	//xStart = 13;
-	//yStart = 150;
-	//float width = 35;
-	//float height = 40;
-	//float a = 7;
-	//float shift = 3;
-	//float between = 2;
-	//float ax = a * glutGet(GLUT_WINDOW_HEIGHT) / glutGet(GLUT_WINDOW_WIDTH);
-	//if (isCubePressed) {
-	//	i = 0;
-	//	if (yStart + height / 2 - (a + shift) / 2 < y && y < yStart + height / 2 - (a + shift) / 2 + a + shift) {
-	//		i = floor((x - (xStart - shift+5)) / (ax + shift + between)) + 1;
-	//	}
-	//	if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 - (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 - (a + shift - between) + shift + a) {
-	//		i = 5;
-	//	}
-	//	if (xStart + (a + shift + between) - shift < x && x < xStart + (a + shift + between) + ax + 5 && yStart + height / 2 - (a + shift) / 2 + (a + shift - between) < y && y < yStart + height / 2 - (a + shift) / 2 + (a + shift - between) + shift + a) {
-	//		i = 6;
-	//	}
-	//	if (i != 0) {
-	//		return i;
-	//	}
-	//}
-
-	////cube
-	//xStart = 2;
-	//yStart = 182;
-	//a = 10;
-	//shift = 3;
-	//if (xStart < x && x < xStart + a + shift && yStart < y && y < yStart + yShift) {
-	//	isCubePressed = !isCubePressed;
-	//}
+	//cube
+	xStart = 2;
+	yStart = 182;
+	a = 10;
+	shift = 3;
+	if (xStart < x && x < xStart + a + shift && yStart < y && y < yStart + a) {
+		isCubePressed = !isCubePressed;
+	}
 	return 0;
 }
 void Manipulator::stopChangeByMouse() {
@@ -1194,9 +1117,87 @@ void Manipulator::stopChangeByMouse() {
 
 //==========================================================================================================================|
 //																															|
-//														_VIEW 														    	|
+//														_SPEED 														    	|
 //																															|
 //==========================================================================================================================|
+void Manipulator::changeGoWithSpeed(Point targetCoords, float speed) {
+	if (isGoWithSpeed_ ==0) {
+		goWithSpeed(targetCoords, speed);
+	}
+	else if(isGoWithSpeed_ == 1){
+		isGoWithSpeed_ = 0;
+	}
+}
+void Manipulator::changeGoWithAngularSpeed(Point targetCoords, float speed) {
+	if (isGoWithSpeed_ == 0) {
+		goWithAngularSpeed(targetCoords, speed);
+	}
+	else if (isGoWithSpeed_ == 2) {
+		isGoWithSpeed_ = 0;
+	}
+}
+void Manipulator::goWithSpeed(Point targetCoords, float speed)
+{
+	Point dCoords = targetCoords - coords_;
+	float pathLength = distance(targetCoords, coords_);
+	Point speedP = Point(speed * dCoords.x / pathLength, speed * dCoords.y / pathLength, speed * dCoords.z / pathLength);
+	float k = CLOCKS_PER_SEC;
+	double dTime = (clock() - prTime_) / k;
+	prTime_ = clock(); // конечное время
+	Point newCoords = coords_ + dTime * speedP;
+	
+	if (pathLength < dTime*speed) {
+		isGoWithSpeed_ = 0;
+	}
+	else {
+		setPosition(newCoords);
+		isGoWithSpeed_ = 1;
+		targetCoords_ = targetCoords;
+		speed_ = speed;
+	}
+}
+
+void Manipulator::goWithAngularSpeed(Point targetCoords, float speed)
+{
+	Point dCoords = targetCoords - coords_;
+	float pathLength = distance(targetCoords, coords_);
+	Point speedP = Point(speed * dCoords.x / pathLength, speed * dCoords.y / pathLength, speed * dCoords.z / pathLength);
+	float k = CLOCKS_PER_SEC;
+	double dTime = (clock() - prTime_) / k;
+	prTime_ = clock(); // конечное время
+
+	Eigen::Vector<double, 6> speedV{ {speedP.x,  speedP.y ,  speedP.z ,  0 ,  0 ,  0  } };
+	Eigen::VectorXd angularSpeed;
+	if (forwardKinematicsMethod_ == DH) {
+		countJacobian();
+		if (J_.determinant() != 0) {
+			angularSpeed = J_.inverse() * speedV;
+		}
+		else {
+			angularSpeed = Eigen::VectorXd::Zero(kAxis_);
+			error_ = JACOBIAN_DEGENERATION;
+		}
+	}
+	else if (forwardKinematicsMethod_ == EXP) {
+		countGeomJacobian();
+		angularSpeed = geomJ_ * speedV;
+	}
+	std::vector<Angle> newAngles;
+	for (int i = 0; i < kAxis_; i++) {
+		 newAngles.push_back(Angle(angles_[i] + dTime * angularSpeed[i]));
+	}
+
+	if (pathLength < dTime * speed) {
+		isGoWithSpeed_ = 0;
+	}
+	else {
+		setAngles(newAngles);
+		isGoWithSpeed_ = 2;
+		targetCoords_ = targetCoords;
+		speed_ = speed;
+	}
+}
+
 
 //==========================================================================================================================|
 //																															|
@@ -1445,7 +1446,7 @@ SixAxisStandardManipulator::SixAxisStandardManipulator(ForwardKinematicsMethod m
 		Hiim1T0_ = Hiim1T0;
 	}
 	initializeVectorsAsNull();
-	J_.resize(kAxis_, kAxis_);
+	//J_.resize(kAxis_, kAxis_);
 	setAngles(angles_);
 	kJoints_ = 0;
 	for (int i = 0; i < kAxis_; i++) {
@@ -1477,38 +1478,25 @@ std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R) {
 	std::array<Angle, 3> angles = { z1, y2, z3 };
 	return angles;
 }
-Eigen::Matrix3d SixAxisStandardManipulator::getR3() {
-	for (int i = 0; i < 3; i++) {
-		double th = angles_[i].get();
-		//transformation matrix from i-1 coordinate system to i coordinate system
-		Eigen::Matrix4d Hi{ {cos(th),  -sin(th) * cos(alpha_[i]),  sin(th) * sin(alpha_[i]),   a_[i] * cos(th)},
-							  {sin(th),  cos(th) * cos(alpha_[i]),   -cos(th) * sin(alpha_[i]),  a_[i] * sin(th)},
-							  {0,        sin(alpha_[i]),             cos(alpha_[i]),             d_[i]          },
-							  {0,        0,                          0,                          1              } };
-		H_[i + 1] = H_[i] * Hi;  //transformation matrix from 0 coordinate system to i coordinate system 
-	}
-	return getR(H_[3]);
-}
-
-
 
 void SixAxisStandardManipulator::inverseKinematics() 
 {
 	Eigen::Vector3d zv (0, 0, 1);
-	Eigen::Vector3d p46 = d_[5] * R_ * zv;
+	Eigen::Vector3d p46 = l_[3] * R_ * zv;
 	Point p04 = coords_ - Point(p46);
 
-	firstThreeAxis.setPosition(p04);
+	firstThreeAxis.setPosition(p04, Eigen::Matrix3d::Identity());
 	std::vector<Angle> angles3 = firstThreeAxis.getAngles();
 	error_ = firstThreeAxis.getError();
 	if (error_ != OUT_OF_WORKSPACE) {
-		angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2] + PI / 2;
-		Eigen::Matrix3d R3 = getR3();
-		Eigen::Matrix3d R36 = R3.transpose() * R_;
+		angles_[0] = angles3[0]; angles_[1] = angles3[1]; angles_[2] = angles3[2];
+		Eigen::Matrix3d R = R_; //need to be saved because set angles changes R_
+		setAngles(angles_); //to now R[3]
+		Eigen::Matrix3d R3 = getR(H_[3]);
+		Eigen::Matrix3d R36 = R3.transpose() * R;
 		std::array<Angle, 3> angles36 = findEulerAngles(R36);
 		angles_[3] = angles36[0]; angles_[4] = angles36[1]; angles_[5] = angles36[2];
-		//angles_[3] = 0; angles_[4] = 0; angles_[5]=0;
-		angles_[2] = angles3[2];
+		angles_[2] = angles3[2]; //because it was changed to PI/2 in setAngles (only to DH method)
 		setAngles(angles_);
 	}
 }

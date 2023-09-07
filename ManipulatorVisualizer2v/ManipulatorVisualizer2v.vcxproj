@@ -149,7 +149,10 @@
   <ItemGroup>
     <ClCompile Include="font.cpp" />
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Manipulator.cpp" />
+    <ClCompile Include="Manipulator.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+      </ExcludedFromBuild>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="font.h" />

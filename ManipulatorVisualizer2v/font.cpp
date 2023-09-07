@@ -3,9 +3,14 @@
 
 #include "font.h"
 
-CFont::CFont(const char* ttf, int FSize, int FDepth)
+const char* ttfT = "C:/Windows/Fonts/arial.ttf";
+const char* ttfMT = "C:/Windows/Fonts/cambria.ttc";
+CFont* FontT = new CFont(ttfT, 24, 32);
+CFont* FontMT = new CFont(ttfMT, 24, 32);
+
+CFont::CFont(std::string ttf, int FSize, int FDepth)
 {
-	this->Font = new FTGLPixmapFont(ttf);
+	this->Font = new FTGLPixmapFont(ttf.c_str());
 	if (!Font->FaceSize(FSize)) {
 		//MessageBox(NULL, "Cant set font FaceSize", "Error", MB_OK);
 		std::cout << "ERROR::Cant set font FaceSize" << std::endl;
@@ -15,6 +20,11 @@ CFont::CFont(const char* ttf, int FSize, int FDepth)
 	Font->CharMap(ft_encoding_unicode);
 	//printf("%i\n", Font->charSize.Width());
 }
+//CFont::CFont() {
+//	const char* ttf3 = "C:/Windows/Fonts/arial.ttf";
+//	CFont(ttf3, 24, 32);
+//}
+
 void CFont::Print(float x, float y, const wchar_t* text)
 {
 	glPushMatrix(); //to print more than one text
@@ -53,7 +63,8 @@ void drawLine(float x1, float y1, float x2, float y2)
 
 Table::Table(CFont* font, int kRows, int kColumns,int kSymb, float xShift, float yShift, float yTextShift)
 {
-	font_ = font;
+	font_ = FontT;
+	mathFont_ = FontMT;
 	kRows_ = kRows;
 	kColumns_ = kColumns;
 	yShift_ = yShift;
@@ -159,8 +170,11 @@ void Table::printTable()
 	if (yTitleShift_ != 0) {
 		for (int i = 0; i < columnTitles_.size(); i++) {
 			float titleLen = font_->Font->Advance(columnTitles_[i].c_str()) * 200 / glutGet(GLUT_WINDOW_WIDTH);
-			if(i==0) x = xStart_ +  (xTitleShift_ - titleLen) / 2;
-			else x = xStart_ + xTitleShift_ + (i-1)*xShift_ + (xShift_ - titleLen) / 2;
+			if (xTitleShift_ != 0) {
+				if (i == 0) x = xStart_ + (xTitleShift_ - titleLen) / 2;
+				else x = xStart_ + xTitleShift_ + (i - 1) * xShift_ + (xShift_ - titleLen) / 2;
+			}
+			else x = xStart_ + i*xShift_ + (xShift_ - titleLen) / 2;
 			y = yStart_ + yMainTitleShift_ + yTitleShift_ - yTextShift_;
 			font_->Print(x, y, columnTitles_[i].c_str());
 		}
@@ -176,16 +190,20 @@ void Table::printTable()
 	}
 
 	//data
+
 	if (data_.size() == kRows_) {
 		if (data_[0].size() == kColumns_) {
 
 			for (int i = 0; i < kRows_; i++) {
 				for (int j = 0; j < kColumns_; j++) {
 					text = data_[i][j];
-					float titleLen = font_->Font->Advance(text.c_str()) * 200 / glutGet(GLUT_WINDOW_WIDTH);
+					CFont* dataFont=font_;
+					if (text == L"\u21BB" or text == L"\u21BA") 
+						dataFont = mathFont_;
+					float titleLen = dataFont->Font->Advance(text.c_str()) * 200 / glutGet(GLUT_WINDOW_WIDTH);
 					x = xStart_ + xTitleShift_ + j * xShift_ + (xShift_ - titleLen) / 2;
 					y = yStart_ + yMainTitleShift_ + yTitleShift_ + yShift_ * (i + 1) - yTextShift_;
-					font_->Print(x, y, text.c_str());
+					dataFont->Print(x, y, text.c_str());
 				}
 			}
 		}
