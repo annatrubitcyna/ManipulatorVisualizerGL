@@ -189,9 +189,11 @@ void Manipulator::initializeVectorsAsNull() {
 		nullJ.push_back(J1);
 	}
 	J_.resize(6, kAxis_);
+	geomJ_.resize(6, kAxis_);
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < kAxis_; j++) {
 			J_(i, j) = 0.0;
+			geomJ_(i, j) = 0.0;
 		}
 	}
 }
@@ -415,6 +417,9 @@ void Manipulator::countJacobian()
 		J_.block(0, i, 3, 1) = Jvi;
 		J_.block(3, i, 3, 1) = zi0;
 	}
+	/*std::cout << J_.format(OctaveFmt) << sep; 
+	std::cout << J_.inverse().format(OctaveFmt) << sep;
+	printf("%lf\n", J_.determinant());*/
 }
 
 //==========================================================================================================================|
@@ -502,11 +507,15 @@ void Manipulator::forwardKinematicsEXP()
 
 void Manipulator::countGeomJacobian()
 {
-	for (int i = 1; i < kAxis_+1; i++) {
-		Eigen::Matrix4d twist = H_[i - 1]*twistMatrixFromVector(unitTwists_[i])*H_[i - 1];
+	for (int i = 0; i < kAxis_; i++) {
+		//Eigen::Vector<double, 6> Twist = angles_[i].get() * unitTwists_[i];
+		Eigen::Matrix4d twist = H_[i]*twistMatrixFromVector(unitTwists_[i])*(H_[i].inverse());
 		Eigen::Vector<double, 6> twistV = twistVectorFromMatrix(twist);
-		geomJ_.block(0, i, kAxis_, 1) = twistV;
+		geomJ_.block(0, i, 6, 1) = twistV;
 	}
+	std::cout << geomJ_.format(OctaveFmt) << sep; 
+	std::cout << geomJ_.inverse().format(OctaveFmt) << sep;
+	printf("%lf\n", geomJ_.determinant());
 }
 
 void Manipulator::inverseKinematics()
@@ -884,7 +893,7 @@ void Manipulator::initFunctionTable()
 	callbacks[6][0] = callback;
 	callback = std::bind(&Manipulator::changeGoWithSpeed, this, Point(150, -100, 50), 20);
 	callbacks[3][0] = callback;
-	callback = std::bind(&Manipulator::changeGoWithAngularSpeed, this, Point(200, 0, 100), 20);
+	callback = std::bind(&Manipulator::changeGoWithAngularSpeed, this, Point(150, -100, 50), 20);
 	callbacks[4][0] = callback;
 	functionTable_.setCallbacks(callbacks);
 }
@@ -1167,32 +1176,47 @@ void Manipulator::goWithAngularSpeed(Point targetCoords, float speed)
 	prTime_ = clock(); // конечное время
 
 	Eigen::Vector<double, 6> speedV{ {speedP.x,  speedP.y ,  speedP.z ,  0 ,  0 ,  0  } };
-	Eigen::VectorXd angularSpeed;
+	Eigen::VectorXd angularSpeed = Eigen::VectorXd::Zero(kAxis_);;
+	std::vector<Angle> newAngles = angles_;
 	if (forwardKinematicsMethod_ == DH) {
 		countJacobian();
-		if (J_.determinant() != 0) {
+		printf("%lf", J_.determinant());
+		if (abs(J_.determinant())> 0.0001) {
 			angularSpeed = J_.inverse() * speedV;
+			for (int i = 0; i < kAxis_; i++) {
+				newAngles[i] = Angle(angles_[i] + dTime * angularSpeed[i]-dTh_[i]);
+			}
+			error_ = OK;
+			isGoWithSpeed_ = 2;
+			setAngles(newAngles);
 		}
 		else {
-			angularSpeed = Eigen::VectorXd::Zero(kAxis_);
 			error_ = JACOBIAN_DEGENERATION;
+			isGoWithSpeed_ = 0;
 		}
 	}
 	else if (forwardKinematicsMethod_ == EXP) {
 		countGeomJacobian();
-		angularSpeed = geomJ_ * speedV;
-	}
-	std::vector<Angle> newAngles;
-	for (int i = 0; i < kAxis_; i++) {
-		 newAngles.push_back(Angle(angles_[i] + dTime * angularSpeed[i]));
-	}
+		if (abs(geomJ_.determinant()) > 0.000001) {
+			Eigen::Vector<double, 6> speedV2  { {0,0,0,0,0,0} };
+			speedV2.block(0,0,3,1) = -getR(H_[kAxis_]) * speedV.block(0, 0, 3, 1);
+			angularSpeed = geomJ_.inverse() * speedV2;
+			for (int i = 0; i < kAxis_; i++) {
+				newAngles[i] = Angle(angles_[i] + dTime * angularSpeed[i]);
+			}
+			isGoWithSpeed_ = 2;
+			setAngles(newAngles);
+		}
+		else {
+			error_ = JACOBIAN_DEGENERATION;
+			isGoWithSpeed_ = 0;
+		}
+	}	
 
 	if (pathLength < dTime * speed) {
 		isGoWithSpeed_ = 0;
 	}
-	else {
-		setAngles(newAngles);
-		isGoWithSpeed_ = 2;
+	else{
 		targetCoords_ = targetCoords;
 		speed_ = speed;
 	}

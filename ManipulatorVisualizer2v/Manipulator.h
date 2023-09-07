@@ -110,7 +110,7 @@ protected:
 	Error error_;
 	
 	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> J_; // DH kAxis, kAxis
-	Eigen::Matrix<double, 6, Eigen::Dynamic> geomJ_; //EXP kAxis, kAxis
+	Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> geomJ_; //EXP kAxis, kAxis
 
 	Table angleTable_;
 	Table coordTable_;
