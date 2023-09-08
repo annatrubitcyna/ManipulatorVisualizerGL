@@ -144,7 +144,7 @@ protected:
 	void drawOrientationCubes();
 
 	bool isCubePressed;
-	std::vector<int> isChangedByMouse_; //1 or 0- yes or not; x y mouse coords 
+	std::vector<int> isChangedByMouse_; //1 or 0- yes or not, 2-only once ; x y mouse coords 
 	int isGoWithSpeed_; //1-goWithSpeed, 2-goWithAngularSpeed; 
 	Point targetCoords_;
 	float speed_;

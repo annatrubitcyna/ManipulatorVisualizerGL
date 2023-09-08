@@ -509,7 +509,7 @@ void Manipulator::countGeomJacobian()
 {
 	for (int i = 0; i < kAxis_; i++) {
 		//Eigen::Vector<double, 6> Twist = angles_[i].get() * unitTwists_[i];
-		Eigen::Matrix4d twist = H_[i]*twistMatrixFromVector(unitTwists_[i])*(H_[i].inverse());
+		Eigen::Matrix4d twist = (H_[i])*twistMatrixFromVector(unitTwists_[i])*(H_[i].inverse());
 		Eigen::Vector<double, 6> twistV = twistVectorFromMatrix(twist);
 		geomJ_.block(0, i, 6, 1) = twistV;
 	}
@@ -1084,6 +1084,7 @@ int Manipulator::changeByMouse(float x, float y) {
 	}
 	if (functionTable_.isInside(x, y)) {
 		functionTable_.mousePress(x, y);
+		isChangedByMouse_[0] = 2;
 	}
 	//cubePanel
 	float xStart = 13;
@@ -1180,7 +1181,7 @@ void Manipulator::goWithAngularSpeed(Point targetCoords, float speed)
 	std::vector<Angle> newAngles = angles_;
 	if (forwardKinematicsMethod_ == DH) {
 		countJacobian();
-		printf("%lf", J_.determinant());
+		//printf("%lf", J_.determinant());
 		if (abs(J_.determinant())> 0.0001) {
 			angularSpeed = J_.inverse() * speedV;
 			for (int i = 0; i < kAxis_; i++) {
@@ -1199,7 +1200,7 @@ void Manipulator::goWithAngularSpeed(Point targetCoords, float speed)
 		countGeomJacobian();
 		if (abs(geomJ_.determinant()) > 0.000001) {
 			Eigen::Vector<double, 6> speedV2  { {0,0,0,0,0,0} };
-			speedV2.block(0,0,3,1) = -getR(H_[kAxis_]) * speedV.block(0, 0, 3, 1);
+			speedV2.block(3,0,3,1) =  speedV.block(0, 0, 3, 1);
 			angularSpeed = geomJ_.inverse() * speedV2;
 			for (int i = 0; i < kAxis_; i++) {
 				newAngles[i] = Angle(angles_[i] + dTime * angularSpeed[i]);

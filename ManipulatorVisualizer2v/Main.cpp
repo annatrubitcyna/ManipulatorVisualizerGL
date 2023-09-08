@@ -47,7 +47,7 @@ std::vector<double> dTh = { 0, 0, PI/2, 0, 0, 0};
 Point baseCoords = Point(0.0, 0.0, 0.0);
 std::vector<double> angles = { 0, PI/3, 0, 0.0, 0.5, 0.3 };
 //std::vector<double> angles = { 0, 0, 0 , 0.0, 0, 0 };
-SixAxisStandardManipulator manipulator = SixAxisStandardManipulator(DH, l);
+SixAxisStandardManipulator manipulator = SixAxisStandardManipulator(EXP, l);
 ThreeAxisRrrManipulator manipulator2 = ThreeAxisRrrManipulator({ 100, 100, 100 });
 //Manipulator manipulator = Manipulator(6,a, alpha, d, dTh);
 
