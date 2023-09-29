@@ -61,7 +61,15 @@ void drawLine(float x1, float y1, float x2, float y2)
 	glEnd();
 }
 
-Table::Table(CFont* font, int kRows, int kColumns,int kSymb, float xShift, float yShift, float yTextShift)
+void drawLine(float x1, float y1, float z1, float x2, float y2, float z2)
+{
+	glBegin(GL_LINES);
+	glVertex3f(x1, y1, z1);
+	glVertex3f(x2, y2, z2);
+	glEnd();
+}
+
+Table::Table(int kRows, int kColumns,int kSymb, float xShift, float yShift, float yTextShift)
 {
 	font_ = FontT;
 	mathFont_ = FontMT;
@@ -83,10 +91,6 @@ Table::Table(CFont* font, int kRows, int kColumns,int kSymb, float xShift, float
 	xTitleShift_ = 0;
 	wholeWidth_ = kColumns_ * xShift_;
 	wholeHeight_ = kRows_ * yShift_;
-}
-Table::Table() 
-{
-
 }
 
 void Table::setPosition(float xStart, float yStart) 

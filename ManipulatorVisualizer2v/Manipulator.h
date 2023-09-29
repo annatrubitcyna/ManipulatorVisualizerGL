@@ -119,6 +119,16 @@ protected:
 	Table functionTable_;
 	bool areTablesInit;
 
+	bool isCubePressed;
+	std::vector<int> isChangedByMouse_; //1 or 0- yes or not, 2-only once ; x y mouse coords 
+	int isGoWithSpeed_; //1-goWithSpeed, 2-goWithAngularSpeed; 
+	Point targetCoords_;
+	float speed_;
+	double prTime_;
+	bool isGoByGcodes_;
+	Point previousCoords_;
+	std::vector<float> parsePoint_;
+
 	void initializeVectorsAsNull();
 	void setAngles(std::vector<Angle> angles);
 
@@ -143,14 +153,9 @@ protected:
 	void checkStartingPosition(std::vector<Angle> angles);
 	void drawOrientationCubes();
 
-	bool isCubePressed;
-	std::vector<int> isChangedByMouse_; //1 or 0- yes or not, 2-only once ; x y mouse coords 
-	int isGoWithSpeed_; //1-goWithSpeed, 2-goWithAngularSpeed; 
-	Point targetCoords_;
-	float speed_;
-	double prTime_;
-
-	void goByGCODE(std::string fileName);
+	std::vector<float> parse(std::string line);
+	void changeGoByGcode();
+	void goByGCODE();
 	void changeGoWithSpeed(Point targetCoords, float speed);
 	void goWithSpeed(Point targetCoords, float speed);
 	void changeGoWithAngularSpeed(Point targetCoords, float speed);

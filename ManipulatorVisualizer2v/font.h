@@ -53,8 +53,7 @@ class Table {
 		std::vector<std::vector<std::function<void()>>> callbacks_; //callbacks if the button have been pressed
 
 
-		Table(CFont* font, int kRows=1, int kColumns=1, int kSymb = 6, float xShift = 12, float yShift = 7.0f, float yTextShift = 2.0f);
-		Table();
+		Table(int kRows=1, int kColumns=1, int kSymb = 6, float xShift = 12, float yShift = 7.0f, float yTextShift = 2.0f);
 
 		void setPosition(float xStart, float yStart);
 		void addMainTitle(std::wstring mainTitle, float yMainTitleShift = 7.0f);

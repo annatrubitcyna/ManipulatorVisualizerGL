@@ -11,15 +11,11 @@
 
 #include <fstream>
 
-const char* ttf = "C:/Windows/Fonts/arial.ttf";
-const char* ttfM = "C:/Windows/Fonts/cambria.ttc";
-const char* ttf2 = "C:/Users/Ann/Downloads/FTGL/arial.ttf";
-CFont* Font = new CFont(ttf, 24, 32);
-CFont* FontM = new CFont(ttfM, 24, 32);
 
 std::string sep = "\n----------------------------------------\n";
 Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
-//std::cout << expWt << "\n";
+std::ifstream GcodeFile_("AbsoluteCube1.gcode");
+
 double sq(double a)
 {
 	return pow(a, 2);
@@ -34,13 +30,13 @@ double toDegrees(double angle)
 	return angle * 180 / PI;
 }
 
-//void drawLine(float x1, float y1, float x2, float y2) 
-//{
-//	glBegin(GL_LINES);
-//	glVertex2f(x1, y1);
-//	glVertex2f(x2, y2);
-//	glEnd();
-//}
+void drawLine(Point p1, Point p2)
+{
+	glBegin(GL_LINES);
+	glVertex3f(p1.x, p1.y, p1.z);
+	glVertex3f(p2.x, p2.y, p2.z);
+	glEnd();
+}
 
 Eigen::Matrix3d getR(Eigen::Matrix4d H)
 {
@@ -55,6 +51,9 @@ GLfloat* getColor(COLOR i)
 	return colors[i];
 }
 
+double roundN(double d, int i) {
+	return std::round(d * pow(10, i)) / pow(10, 5);
+}
 //std::wstring roundN(double a, int n) 
 //{
 //	std::wstring b = std::to_wstring(round(a * pow(10, n)) / pow(10, n)).substr(0, n+);
@@ -175,13 +174,6 @@ void Manipulator::initializeVectorsAsNull() {
 		H_.push_back(Eigen::Matrix4d::Zero());
 		if (i < 3)	isChangedByMouse_.push_back(0);
 	}
-	isCubePressed = false;
-	areTablesInit = false;
-	isGoWithSpeed_ = 0;
-	targetCoords_ = Point(0, 0, 0);
-	speed_ = 0;
-	prTime_ = clock();
-
 	std::vector<double> J1(kAxis_);
 	for (int i = 0; i < kAxis_; i++) J1[i] = 0;
 	std::vector<std::vector<double>> nullJ;
@@ -196,6 +188,15 @@ void Manipulator::initializeVectorsAsNull() {
 			geomJ_(i, j) = 0.0;
 		}
 	}
+	isCubePressed = false;
+	areTablesInit = false;
+	isGoWithSpeed_ = 0;
+	targetCoords_ = Point(0, 0, 0);
+	speed_ = 0;
+	prTime_ = clock();
+	isGoByGcodes_ = false;
+	previousCoords_ = Point(0, 0, 0);
+	parsePoint_ = { 0.0, 0.0, 0.0, 0.0, 0.0 };
 }
 
 Manipulator::Manipulator(int kAxis, std::vector<double> a, std::vector<double> alpha, std::vector<double> d, std::vector<double> dTh)
@@ -565,6 +566,12 @@ void Manipulator::drawManipulator()
 			functionTable_.data_[3][0] = L"-";
 			functionTable_.data_[4][0] = L"-";
 		}
+		if (isGoByGcodes_) {
+			goByGCODE();
+		}
+		else if (functionTable_.data_.size() != 0){
+			functionTable_.data_[5][0] = L"-";
+		}
 	}
 	prTime_ = clock();
 }
@@ -703,7 +710,7 @@ float getXShiftR2() { //1 column
 //==========================================================================================================================|
 void Manipulator::initAngleTable() 
 {
-	angleTable_ = Table(Font, 4, kAxis_, 6, 0);
+	angleTable_ = Table(4, kAxis_, 6, 0);
 	std::vector<std::wstring> columnTitles = { L"№" };
 	for (int i = 0; i < kAxis_; i++) columnTitles.push_back(std::to_wstring(i + 1));
 	angleTable_.addColumnTitles(columnTitles);
@@ -746,7 +753,7 @@ void Manipulator::printAngles()
 //==========================================================================================================================|
 void Manipulator::initCoordTable() 
 {
-	coordTable_ = Table(Font, kJoints_ + 2, 3, 6, 0);
+	coordTable_ = Table(kJoints_ + 2, 3, 6, 0);
 	std::vector<std::wstring> columnTitles = { L"№" , L"x", L"y", L"z" };
 	std::vector<std::wstring> rowTitles;
 	for (int i = 0; i < kJoints_; i++) rowTitles.push_back(std::to_wstring(i + 1));
@@ -813,13 +820,13 @@ void Manipulator::printCoords()
 //==========================================================================================================================|
 void Manipulator::initOrientationTables() 
 {
-	eulerAngleTable_ = Table(Font, 1, 3, 6, 0);
+	eulerAngleTable_ = Table(1, 3, 6, 0);
 	eulerAngleTable_.addMainTitle(L"Euler angles");
 	std::vector<std::wstring> columnTitles = { L"z1", L"y2", L"z3" };
 	eulerAngleTable_.addColumnTitles(columnTitles);
 	eulerAngleTable_.setPosition(coordTable_.xStart_, angleTable_.yStart_);
 
-	orientationTable_ = Table(Font, 5, 3, 6, 0);
+	orientationTable_ = Table(5, 3, 6, 0);
 	orientationTable_.addMainTitle(L"Rotation matrix");
 	std::vector<std::wstring> columnTitles2 = { L"x", L"y", L"z" };
 	orientationTable_.addColumnTitles(columnTitles2);
@@ -872,10 +879,10 @@ std::wstring Error_to_string(Error error)
 }
 void Manipulator::initFunctionTable() 
 {
-	functionTable_ = Table(Font, 7, 1, 1, 5);
+	functionTable_ = Table(6, 1, 1, 5);
 	std::wstring text = Error_to_string(error_);
 	std::vector<std::wstring> rowTitles = { text.c_str(), L"starting_position", L"mouse control", L"go with speed",
-											L"go with angular speed", L"go with grip speed T", L"go by GCODE's" };
+											L"go with angular speed", L"go by GCODE's" };
 	functionTable_.addRowTitles(rowTitles, 30);
 	float xStart = 200 - functionTable_.wholeWidth_ - 3;
 	float yStart = (200 - functionTable_.wholeHeight_) / 2;
@@ -889,8 +896,8 @@ void Manipulator::initFunctionTable()
 	std::vector<std::vector<std::function<void()>>> callbacks = functionTable_.initNullCallbacks();
 	std::function<void()> callback = std::bind(&Manipulator::goToStartingPosition, this);
 	callbacks[1][0] = callback;
-	callback = std::bind(&Manipulator::goByGCODE, this, "AbsoluteCube1.gcode");
-	callbacks[6][0] = callback;
+	callback = std::bind(&Manipulator::changeGoByGcode, this);
+	callbacks[5][0] = callback;
 	callback = std::bind(&Manipulator::changeGoWithSpeed, this, Point(150, -100, 50), 20);
 	callbacks[3][0] = callback;
 	callback = std::bind(&Manipulator::changeGoWithAngularSpeed, this, Point(150, -100, 50), 20);
@@ -1055,6 +1062,7 @@ void Manipulator::initTables() {
 	initFunctionTable();
 }
 void Manipulator::printInfo() {
+	glColor3f(getColor(WHITE)[0], getColor(WHITE)[1], getColor(WHITE)[2]);
 	if (!areTablesInit) {
 		initTables();
 		areTablesInit = true;
@@ -1130,6 +1138,17 @@ void Manipulator::stopChangeByMouse() {
 //														_SPEED 														    	|
 //																															|
 //==========================================================================================================================|
+void Manipulator::changeGoByGcode() {
+	if (isGoByGcodes_ == 0) {
+		goByGCODE();
+	}
+	else if (isGoByGcodes_ == 1) {
+		isGoByGcodes_ = 0;
+		if (isGoWithSpeed_ == 1) {
+			isGoWithSpeed_ = 0;
+		}
+	}
+}
 void Manipulator::changeGoWithSpeed(Point targetCoords, float speed) {
 	if (isGoWithSpeed_ ==0) {
 		goWithSpeed(targetCoords, speed);
@@ -1161,6 +1180,10 @@ void Manipulator::goWithSpeed(Point targetCoords, float speed)
 	}
 	else {
 		setPosition(newCoords);
+		/*if (isGoByGcodes_) {
+			glColor3f(getColor(GREEN_YELLOW)[0], getColor(GREEN_YELLOW)[1], getColor(GREEN_YELLOW)[2]);
+			drawLine(previousCoords_, newCoords);
+		}*/
 		isGoWithSpeed_ = 1;
 		targetCoords_ = targetCoords;
 		speed_ = speed;
@@ -1229,15 +1252,11 @@ void Manipulator::goWithAngularSpeed(Point targetCoords, float speed)
 //														_GCODES 															|
 //																															|
 //==========================================================================================================================|
-std::vector<float> parse(std::string line) {
+std::vector<float> Manipulator::parse(std::string line) {
 		line += ' ';
-		int k_gcode = 5;
-		float table_x = 50;
-		float table_y = 50;
-		float table_z = 50;
-		float x_g=table_x;
-		float y_g=table_y;
-		float z_g=table_z;
+		float x_g=0;
+		float y_g=0;
+		float z_g=0;
 		float e_g=0;
 		float f_g=0;
 		
@@ -1249,7 +1268,8 @@ std::vector<float> parse(std::string line) {
 				z_gs += line[i];
 				i += 1;
 			}
-			z_g = table_z + std::stof(z_gs) / k_gcode;
+			z_g = std::stof(z_gs);
+			parsePoint_[2] = z_g;
 		}
 
 		i = line.rfind("X") + 1;
@@ -1259,7 +1279,8 @@ std::vector<float> parse(std::string line) {
 				x_gs += line[i];
 				i += 1;
 			}
-			x_g = table_x + std::stof(x_gs) / k_gcode;
+			x_g = std::stof(x_gs);
+			parsePoint_[0] = x_g;
 		}
 
 		i = line.rfind("Y") + 1;
@@ -1269,7 +1290,8 @@ std::vector<float> parse(std::string line) {
 				y_gs += line[i];
 				i += 1;
 			}
-			y_g = table_y + std::stof(y_gs) / k_gcode;
+			y_g = std::stof(y_gs);
+			parsePoint_[1] = y_g;
 		}
 
 		i = line.rfind("E") + 1;
@@ -1280,6 +1302,7 @@ std::vector<float> parse(std::string line) {
 				i += 1;
 			}
 			e_g = std::stof(e_gs);
+			parsePoint_[3] = e_g;
 		}
 
 		i = line.rfind("F") + 1;
@@ -1291,21 +1314,55 @@ std::vector<float> parse(std::string line) {
 				//print(i);
 			}
 			f_g = std::stof(f_gs);
+			parsePoint_[4] = f_g;
 		}
 		std::vector<float> new_point_r = { x_g, y_g, z_g, e_g, f_g };
-		return new_point_r;
+		return parsePoint_;
+}
+Point fromTableCoords(std::vector<float> targetPoint, Point tableCoords, float scale) {
+	if (targetPoint[0]);
+	Eigen::Vector4d targetPointV{ targetPoint[0], targetPoint[1], targetPoint[2] , 1 };
+	Eigen::Matrix4d HTable = Eigen::Matrix4d::Identity();
+	Eigen::Vector3d tableCoordsV{ tableCoords.x,tableCoords.y,tableCoords.z };
+	HTable.block(0, 3, 3, 1) = tableCoordsV;
+	HTable.block(0, 0, 3, 3) = HTable.block(0, 0, 3, 3) * scale;
+	targetPointV = HTable * targetPointV;
+	Point targetCoords = Point(targetPointV[0], targetPointV[1], targetPointV[2]);
+	return targetCoords;
 }
 
-void Manipulator::goByGCODE(std::string fileName) {
+void Manipulator::goByGCODE() {
 	std::string line;
-	std::ifstream file(fileName);
+	Point tableCoords = Point(30, 30, 30);
+	Eigen::Matrix3d R{ {1,0,0}, {0,-1,0}, {0,0,-1} };
+	if (!isGoByGcodes_) {
+		//GcodeFile_.read("AbsoluteCube1.gcode");
+		setPosition(tableCoords, R); //first
+		previousCoords_ = tableCoords;
+		isGoByGcodes_ = true;
+		functionTable_.data_[5][0] = L"+";
+	}
+	else {
+		previousCoords_ = coords_;
+	}
 
-	while (std::getline(file, line)) {
+	if (std::getline(GcodeFile_, line)) {
 		if (line.rfind("G1 ", 0) == 0) {
 			std::vector<float> targetPoint = parse(line);
+			float scale = 0.2;
+			Point targetCoords = fromTableCoords(targetPoint, tableCoords, scale);
+			float speedScale = 0.03333;
+			if(targetPoint[4]!=0)
+				goWithSpeed(targetCoords, targetPoint[4]*speedScale);
+			else
+				goWithSpeed(targetCoords, speed_);
 		}
 	}
-	file.close();
+	else {
+		isGoByGcodes_ = false;
+		functionTable_.data_[5][0] = L"-";
+		GcodeFile_.close();
+	}
 }
 
 
@@ -1484,21 +1541,22 @@ SixAxisStandardManipulator::SixAxisStandardManipulator(ForwardKinematicsMethod m
 std::array<Angle, 3>  findEulerAngles(Eigen::Matrix3d R) {
 	//Angles around z, y', z''
 	Angle z3; Angle y2; Angle z1;
-	if (R(2,2)==1) {
+	double eps = pow(10, -10);
+	if (abs(R(2,2)-1)<eps) {
 		y2 = Angle(0);
 		z3 = Angle(0); //choose any t6
 		z1 = Angle(atan2(R(1,0), R(0,0)) - z3.get());
 	}
-	else if (R(2,2)==-1) {
+	else if (abs(R(2,2)+1)<eps) {
 		y2 = Angle(PI);
 		z3 = Angle(0); //выбираем t6 любым
 		z1 = Angle(atan2(-R(0,1), -R(0,0) + z3.get()));
 	}
 	else {
 		int sign = 1; //1 or -1
-		y2 = Angle(atan2 (sign * sqrt(1 - sq(R(2,2))),   R(2,2)));
-		z1 = Angle(atan2 (sign * R(1,2), sign * R(0,2)));
-		z3 = Angle(atan2 (sign * R(2,1), -sign * R(2,0))); 
+		y2 = Angle(std::atan2 (sign * sqrt(1 - sq(R(2,2))), R(2, 2)));
+		z1 = Angle(std::atan2 (sign * R(1,2), sign * R(0,2)));
+		z3 = Angle(std::atan2 (sign * R(2,1), -sign * R(2,0))); 
 	}
 	std::array<Angle, 3> angles = { z1, y2, z3 };
 	return angles;
