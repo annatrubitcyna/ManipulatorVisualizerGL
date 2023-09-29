@@ -14,6 +14,7 @@
 
 std::string sep = "\n----------------------------------------\n";
 Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
+//std::ifstream GcodeFile_("cylinder.gcode");
 std::ifstream GcodeFile_("AbsoluteCube1.gcode");
 
 double sq(double a)
@@ -194,7 +195,7 @@ void Manipulator::initializeVectorsAsNull() {
 	targetCoords_ = Point(0, 0, 0);
 	speed_ = 0;
 	prTime_ = clock();
-	isGoByGcodes_ = false;
+	isGoByGcodes_ = 2;
 	previousCoords_ = Point(0, 0, 0);
 	parsePoint_ = { 0.0, 0.0, 0.0, 0.0, 0.0 };
 }
@@ -566,7 +567,7 @@ void Manipulator::drawManipulator()
 			functionTable_.data_[3][0] = L"-";
 			functionTable_.data_[4][0] = L"-";
 		}
-		if (isGoByGcodes_) {
+		if (isGoByGcodes_==1) {
 			goByGCODE();
 		}
 		else if (functionTable_.data_.size() != 0){
@@ -1139,7 +1140,14 @@ void Manipulator::stopChangeByMouse() {
 //																															|
 //==========================================================================================================================|
 void Manipulator::changeGoByGcode() {
-	if (isGoByGcodes_ == 0) {
+	if (isGoByGcodes_ == 2) {
+		//std::ifstream GcodeFile_("cylinder.gcode");
+		std::ifstream GcodeFile_("AbsoluteCube1.gcode");
+		goByGCODE();
+	}
+	else if (isGoByGcodes_ == 0 ) {
+		isGoByGcodes_ = 1;
+		functionTable_.data_[5][0] = L"+";
 		goByGCODE();
 	}
 	else if (isGoByGcodes_ == 1) {
@@ -1180,10 +1188,13 @@ void Manipulator::goWithSpeed(Point targetCoords, float speed)
 	}
 	else {
 		setPosition(newCoords);
-		/*if (isGoByGcodes_) {
+		if (isGoByGcodes_) {
 			glColor3f(getColor(GREEN_YELLOW)[0], getColor(GREEN_YELLOW)[1], getColor(GREEN_YELLOW)[2]);
+			for (int i = 0; i < gcodeTrajectory_.size()-1; i++) {
+				drawLine(gcodeTrajectory_[i], gcodeTrajectory_[i+1]);
+			}
 			drawLine(previousCoords_, newCoords);
-		}*/
+		}
 		isGoWithSpeed_ = 1;
 		targetCoords_ = targetCoords;
 		speed_ = speed;
@@ -1261,7 +1272,7 @@ std::vector<float> Manipulator::parse(std::string line) {
 		float f_g=0;
 		
 		int i;
-		i = line.rfind("Z") + 1;
+		i = line.find("Z") + 1;
 		if (i != 0) {    // because if Z hasn't been found that line.find=-1, i=0
 			std::string z_gs = "";
 			while (((i == (line.length() - 1)) | (line[i] == ' ') | (line[i] == ';')) == false) {
@@ -1272,7 +1283,7 @@ std::vector<float> Manipulator::parse(std::string line) {
 			parsePoint_[2] = z_g;
 		}
 
-		i = line.rfind("X") + 1;
+		i = line.find("X") + 1;
 		if (i != 0) {
 			std::string x_gs = "";
 			while (((i == line.length() - 1) | (line[i] == ' ') | (line[i] == ';')) == false) {
@@ -1283,7 +1294,7 @@ std::vector<float> Manipulator::parse(std::string line) {
 			parsePoint_[0] = x_g;
 		}
 
-		i = line.rfind("Y") + 1;
+		i = line.find("Y") + 1;
 		if (i != 0) {
 			std::string y_gs = "";
 			while (((i == line.length() - 1) | (line[i] == ' ') | (line[i] == ';')) == false) {
@@ -1294,7 +1305,7 @@ std::vector<float> Manipulator::parse(std::string line) {
 			parsePoint_[1] = y_g;
 		}
 
-		i = line.rfind("E") + 1;
+		i = line.find("E") + 1;
 		if (i != 0) {
 			std::string e_gs = "";
 			while (((i == line.length() - 1) | (line[i] == ' ') | (line[i] == ';')) == false) {
@@ -1305,7 +1316,7 @@ std::vector<float> Manipulator::parse(std::string line) {
 			parsePoint_[3] = e_g;
 		}
 
-		i = line.rfind("F") + 1;
+		i = line.find("F") + 1;
 		if (i != 0) {
 			std::string f_gs = "";
 			while (((i == line.length() - 1) | (line[i - 1] == ' ') | (line[i - 1] == ';')) == false) {
@@ -1335,15 +1346,17 @@ void Manipulator::goByGCODE() {
 	std::string line;
 	Point tableCoords = Point(30, 30, 30);
 	Eigen::Matrix3d R{ {1,0,0}, {0,-1,0}, {0,0,-1} };
-	if (!isGoByGcodes_) {
+	if (isGoByGcodes_==2) {
 		//GcodeFile_.read("AbsoluteCube1.gcode");
 		setPosition(tableCoords, R); //first
 		previousCoords_ = tableCoords;
-		isGoByGcodes_ = true;
+		gcodeTrajectory_.push_back(previousCoords_);
+		isGoByGcodes_ = 1;
 		functionTable_.data_[5][0] = L"+";
 	}
 	else {
 		previousCoords_ = coords_;
+		gcodeTrajectory_.push_back(previousCoords_);
 	}
 
 	if (std::getline(GcodeFile_, line)) {
@@ -1359,7 +1372,7 @@ void Manipulator::goByGCODE() {
 		}
 	}
 	else {
-		isGoByGcodes_ = false;
+		isGoByGcodes_ = 2;
 		functionTable_.data_[5][0] = L"-";
 		GcodeFile_.close();
 	}

@@ -125,9 +125,10 @@ protected:
 	Point targetCoords_;
 	float speed_;
 	double prTime_;
-	bool isGoByGcodes_;
+	int isGoByGcodes_;
 	Point previousCoords_;
 	std::vector<float> parsePoint_;
+	std::vector<Point> gcodeTrajectory_;
 
 	void initializeVectorsAsNull();
 	void setAngles(std::vector<Angle> angles);
